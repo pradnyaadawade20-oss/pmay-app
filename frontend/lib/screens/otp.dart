@@ -4,6 +4,10 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
+/// TEMPORARY: lets the user skip OTP while email/SMS is not set up on the server.
+/// Set to false once Resend/SMTP/MSG91 works, to make verification mandatory again.
+const bool kAllowOtpSkip = true;
+
 /// Verify email OR phone (either one is enough, same rule as the website).
 /// Step 1: choose method (email / SMS)  ->  Step 2: send OTP + enter OTP.
 class OtpScreen extends StatefulWidget {
@@ -64,6 +68,12 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  void _skip() {
+    // Not marked verified on the server; the user can still verify later via "Verify now".
+    context.read<AppState>().goToTab(1); // land on the Tracking tab
+    Navigator.pop(context);
+  }
+
   void _back() => setState(() {
         _type = null;
         _sent = false;
@@ -98,6 +108,13 @@ class _OtpScreenState extends State<OtpScreen> {
                     textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 15)),
                 const SizedBox(height: 22),
                 if (_type == null) ..._chooser(a) else ..._verifyStep(a),
+                if (kAllowOtpSkip) ...[
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: _busy ? null : _skip,
+                    child: const Text('Skip for now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  ),
+                ],
               ]),
             ),
           ),

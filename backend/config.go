@@ -6,14 +6,15 @@ import (
 )
 
 type Config struct {
-	Port, DatabaseURL, JWTSecret, UploadDir      string
-	ResendKey, ResendFrom                        string
-	MSG91Key, MSG91Sender                        string
-	RazorpayKeyID, RazorpaySecret                string
-	AdminEmail, AdminPassword                    string
-	DevMode                                      bool // DEV_MODE=true -> OTP returned in API response (never use in prod)
-	CORSOrigins                                  string
-	FCMServiceAccountFile, FCMServiceAccountJSON string // Firebase push (optional)
+	Port, DatabaseURL, JWTSecret, UploadDir          string
+	ResendKey, ResendFrom                            string
+	SMTPHost, SMTPPort, SMTPUser, SMTPPass, SMTPFrom string // email via SMTP (needs a paid Render instance)
+	MSG91Key, MSG91Sender                            string
+	RazorpayKeyID, RazorpaySecret                    string
+	AdminEmail, AdminPassword                        string
+	DevMode                                          bool // DEV_MODE=true -> OTP returned in API response (never use in prod)
+	CORSOrigins                                      string
+	FCMServiceAccountFile, FCMServiceAccountJSON     string // Firebase push (optional)
 }
 
 func env(k, d string) string {
@@ -30,6 +31,11 @@ func loadConfig() Config {
 		JWTSecret:             env("JWT_SECRET", "change-me"),
 		UploadDir:             env("UPLOAD_DIR", "./uploads"),
 		ResendKey:             os.Getenv("RESEND_API_KEY"),
+		SMTPHost:              os.Getenv("SMTP_HOST"),
+		SMTPPort:              env("SMTP_PORT", "587"),
+		SMTPUser:              os.Getenv("SMTP_USER"),
+		SMTPPass:              os.Getenv("SMTP_PASS"),
+		SMTPFrom:              os.Getenv("SMTP_FROM"),
 		ResendFrom:            env("RESEND_FROM", "PMAY Registration <noreply@pmay.beellz.com>"),
 		MSG91Key:              os.Getenv("MSG91_AUTH_KEY"),
 		MSG91Sender:           env("MSG91_SENDER_ID", "PMAYOT"),

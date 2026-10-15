@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -38,7 +39,14 @@ func (s *Server) sendOTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, 500, "Failed to store OTP")
 			return
 		}
-		if s.cfg.ResendKey != "" {
+		if s.cfg.smtpEnabled() {
+			html := fmt.Sprintf(`<h2>PMAY Registration</h2><p>Your OTP is <b style="font-size:28px;letter-spacing:6px">%s</b></p><p>Valid for 10 minutes.</p>`, otp)
+			if err := sendSMTP(s.cfg, email, "Your OTP for PMAY Registration", html); err != nil {
+				log.Println("smtp send failed:", err)
+				fail(w, 502, "Failed to send email OTP")
+				return
+			}
+		} else if s.cfg.ResendKey != "" {
 			body, _ := json.Marshal(M{"from": s.cfg.ResendFrom, "to": []string{email}, "subject": "Your OTP for PMAY Registration",
 				"html": fmt.Sprintf(`<h2>PMAY Registration</h2><p>Your OTP is <b style="font-size:28px;letter-spacing:6px">%s</b></p><p>Valid for 10 minutes.</p>`, otp)})
 			req, _ := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewReader(body))
