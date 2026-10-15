@@ -107,6 +107,7 @@ class AppState extends ChangeNotifier {
       onOpened: () => goToTab(1), // tapped a push -> Tracking tab
       onTokenRefresh: (_) => registerPush(),
     );
+    PushService.askPermission(); // ask "Allow notifications?" right when the app first opens
     if (loggedIn) {
       try {
         await refresh();

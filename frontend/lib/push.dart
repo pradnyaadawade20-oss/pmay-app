@@ -51,14 +51,31 @@ class PushService {
     if (await fm.getInitialMessage() != null) onOpened(); // app launched by tapping a push
   }
 
-  /// Requests notification permission (Android 13+) and returns the device token (null if unavailable).
+  static Future<AuthorizationStatus?>? _perm;
+
+  /// Shows the system "Allow notifications?" dialog (Android 13+). Safe to call many times:
+  /// concurrent calls share one dialog. Call it as soon as the app starts.
+  static Future<AuthorizationStatus?> askPermission() {
+    if (!_ready) return Future.value(null);
+    return _perm ??= _ask().whenComplete(() => _perm = null);
+  }
+
+  static Future<AuthorizationStatus?> _ask() async {
+    try {
+      return (await FirebaseMessaging.instance.requestPermission()).authorizationStatus;
+    } catch (e) {
+      debugPrint('Notification permission error: $e');
+      return null;
+    }
+  }
+
+  /// Returns the device token (null if notifications are denied or unavailable).
   static Future<String?> getToken() async {
     if (!_ready) return null;
     try {
-      final fm = FirebaseMessaging.instance;
-      final perm = await fm.requestPermission();
-      if (perm.authorizationStatus == AuthorizationStatus.denied) return null;
-      return await fm.getToken();
+      final st = await askPermission();
+      if (st == null || st == AuthorizationStatus.denied) return null;
+      return await FirebaseMessaging.instance.getToken();
     } catch (e) {
       debugPrint('FCM token error: $e');
       return null;
