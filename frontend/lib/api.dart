@@ -102,11 +102,11 @@ class ApiException implements Exception {
 /// Android emulator -> host machine is 10.0.2.2. Override with:
 ///   flutter run --dart-define=API_BASE=https://api.yourdomain.com/api
 class Api {
-  // Web (Chrome) -> localhost, Android emulator -> 10.0.2.2 (host machine).
+  // Default = live Render API. Override for local dev with --dart-define=API_BASE=http://10.0.2.2:8080/api
   static const _envBase = String.fromEnvironment('API_BASE');
   static String get base => _envBase.isNotEmpty
       ? _envBase
-      : (kIsWeb ? 'http://localhost:8080/api' : 'http://10.0.2.2:8080/api');
+      : 'https://pmay-app.onrender.com/api';
   final _storage = const FlutterSecureStorage();
   String? token;
   void Function()? onUnauthorized;
@@ -171,4 +171,4 @@ class Api {
     if (r.statusCode >= 400) throw ApiException('Could not load file', r.statusCode);
     return r.bodyBytes;
   }
-}
+} 
