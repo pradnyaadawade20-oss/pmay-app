@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -127,6 +128,10 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "Commit failed")
 		return
 	}
+	go func() { // small delay: the app registers its device token right after this response
+		time.Sleep(6 * time.Second)
+		s.notify(context.Background(), appID, "registered", "Registration received", "Your application is submitted. Verify your email or phone to continue.")
+	}()
 	tok := s.signJWT(Claims{Sub: userID, Email: email, Roles: []string{}})
 	writeJSON(w, 201, M{"success": true, "token": tok, "applicantId": appID, "uniqueId": uniqueID})
 }

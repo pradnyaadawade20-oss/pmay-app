@@ -129,5 +129,12 @@ func (s *Server) verifyOTP(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = s.db.ExecContext(r.Context(), `UPDATE otp_verifications SET verified_at=now() WHERE id=$1`, id)
 	_, _ = s.db.ExecContext(r.Context(), `UPDATE applicants SET `+col+`_verified=true WHERE `+col+`=$1`, val)
+	if ap, _ := s.one(r.Context(), `SELECT id FROM applicants WHERE `+col+`=$1`, val); ap != nil {
+		what := "email"
+		if col == "phone" {
+			what = "phone number"
+		}
+		s.notify(r.Context(), ap["id"].(string), "otp_verified", "Verified successfully", "Your "+what+" is verified. Your documents are now under review.")
+	}
 	writeJSON(w, 200, M{"success": true, "verified": true})
 }
