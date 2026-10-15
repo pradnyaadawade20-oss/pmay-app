@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'apply.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,13 +65,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () => setState(() => _hide = !_hide)))),
               const SizedBox(height: 24),
               orangeButton('Login', _login, busy: _busy),
-              const SizedBox(height: 12),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Text("Don't have an account?"),
-                TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApplyScreen())),
-                    child: const Text('Sign Up')),
-              ]),
             ]),
           ),
         ),

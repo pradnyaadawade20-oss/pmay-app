@@ -160,6 +160,7 @@ func (s *Server) notify(ctx context.Context, applicantID, kind, title, body stri
 		return
 	}
 	if s.fcm == nil {
+		log.Println("push skipped: FCM not configured (set FCM_SERVICE_ACCOUNT_JSON on Render):", kind)
 		return
 	}
 	go func() { // detached: request context ends when the HTTP response is written
@@ -177,6 +178,10 @@ func (s *Server) notify(ctx context.Context, applicantID, kind, title, body stri
 			}
 		}
 		rows.Close()
+		if len(tokens) == 0 {
+			log.Println("push skipped: no device token registered for this user (log in on the phone & allow notifications):", kind)
+			return
+		}
 		payload := map[string]string{"kind": kind, "notification_id": nid}
 		if st, ok := data["stage"].(string); ok {
 			payload["stage"] = st
@@ -186,6 +191,8 @@ func (s *Server) notify(ctx context.Context, applicantID, kind, title, body stri
 				_, _ = s.db.ExecContext(bg, `DELETE FROM device_tokens WHERE token=$1`, t)
 			} else if err != nil {
 				log.Println("push:", err)
+			} else {
+				log.Println("push sent:", kind)
 			}
 		}
 	}()
@@ -260,11 +267,22 @@ func (s *Server) saveDeviceToken(w http.ResponseWriter, r *http.Request) {
 		in.Platform = "android"
 	}
 	// a token belongs to exactly one user (re-assigned if another account logs in on the same device)
-	if _, err := s.db.ExecContext(r.Context(), `INSERT INTO device_tokens(user_id,token,platform) VALUES ($1,$2,$3)
-		ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, platform=EXCLUDED.platform, last_seen_at=now()`,
-		claimsOf(r).Sub, in.Token, in.Platform); err != nil {
+	var fresh bool // true only when this device was not registered for this user before (i.e. a new login)
+	if err := s.db.QueryRowContext(r.Context(), `INSERT INTO device_tokens(user_id,token,platform) VALUES ($1,$2,$3)
+		ON CONFLICT (token) DO UPDATE SET user_id=EXCLUDED.user_id, platform=EXCLUDED.platform, last_seen_at=now()
+		RETURNING (xmax = 0)`,
+		claimsOf(r).Sub, in.Token, in.Platform).Scan(&fresh); err != nil {
 		fail(w, 500, "Failed to save token")
 		return
+	}
+	log.Println("device token saved, new device:", fresh)
+	if fresh {
+		// Push "logged in" - skipped for brand-new registrations (they get the "Registration received" push instead).
+		var appID string
+		if s.db.QueryRowContext(r.Context(), `SELECT id FROM applicants WHERE user_id=$1 AND created_at < now() - interval '2 minutes'`,
+			claimsOf(r).Sub).Scan(&appID) == nil {
+			s.notify(r.Context(), appID, "login", "Welcome back", "You are logged in to Krutarth - PMAY.")
+		}
 	}
 	writeJSON(w, 200, M{"success": true})
 }
@@ -275,6 +293,18 @@ func (s *Server) deleteDeviceToken(w http.ResponseWriter, r *http.Request) {
 	if !decode(r, &in) || in.Token == "" {
 		fail(w, 400, "Token required")
 		return
+	}
+	// Tell the user they were logged out: stored in-app + pushed to THIS device only, then the token is removed.
+	var appID string
+	if s.db.QueryRowContext(r.Context(), `SELECT id FROM applicants WHERE user_id=$1`, claimsOf(r).Sub).Scan(&appID) == nil {
+		_, _ = s.db.ExecContext(r.Context(), `INSERT INTO notifications(applicant_id,kind,title,body) VALUES ($1,'logout','Logged out','You have been logged out of Krutarth - PMAY.')`, appID)
+		if s.fcm != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+			if err := s.fcm.send(ctx, in.Token, "Logged out", "You have been logged out of Krutarth - PMAY.", map[string]string{"kind": "logout"}); err != nil {
+				log.Println("push logout:", err)
+			}
+			cancel()
+		}
 	}
 	_, _ = s.db.ExecContext(r.Context(), `DELETE FROM device_tokens WHERE token=$1 AND user_id=$2`, in.Token, claimsOf(r).Sub)
 	writeJSON(w, 200, M{"success": true})

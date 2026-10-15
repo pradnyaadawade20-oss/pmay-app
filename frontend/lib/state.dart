@@ -62,8 +62,12 @@ class AppState extends ChangeNotifier {
   Future<void> registerPush() async {
     if (!loggedIn) return;
     final t = await PushService.getToken();
-    if (t == null) return;
+    if (t == null) {
+      debugPrint('FCM: no token (notification permission denied or Firebase not configured)');
+      return;
+    }
     _pushToken = t;
+    debugPrint('FCM token: $t'); // paste in Firebase Console > Messaging > Send test message
     try {
       await api.postJson('/me/device-token', {'token': t, 'platform': 'android'});
     } catch (_) {}

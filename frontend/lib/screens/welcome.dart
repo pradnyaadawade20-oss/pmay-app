@@ -117,7 +117,7 @@ class WelcomeScreen extends StatelessWidget {
 
   Widget _getStarted(BuildContext context) => InkWell(
         borderRadius: BorderRadius.circular(40),
-        onTap: () => context.read<AppState>().enterGuest(),
+        onTap: () => context.read<AppState>().enterGuest(), // Get Started -> home screen
         child: Container(
           height: 58,
           decoration: BoxDecoration(
