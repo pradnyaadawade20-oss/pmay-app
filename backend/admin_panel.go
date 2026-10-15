@@ -1,0 +1,490 @@
+package main
+
+// Endpoints used by the PMAY admin panel (Flutter web). They reuse the same
+// database and business rules as the applicant API in admin.go.
+
+import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
+	"path/filepath"
+	"strings"
+)
+
+// rewriteBody replaces the request JSON body (used to adapt panel payloads to existing handlers).
+func rewriteBody(r *http.Request, v any) {
+	b, _ := json.Marshal(v)
+	r.Body = io.NopCloser(bytes.NewReader(b))
+}
+
+// POST /api/admin/applicants/{id}/review {decision: approve|reject, reason}
+func (s *Server) adminReview(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Decision, Reason string }
+	if !decode(r, &in) {
+		fail(w, 400, "Invalid body")
+		return
+	}
+	action := map[string]string{"approve": "accept", "accept": "accept", "reject": "reject"}[in.Decision]
+	if action == "" {
+		fail(w, 400, "decision must be approve or reject")
+		return
+	}
+	rewriteBody(r, M{"action": action, "reason": in.Reason})
+	s.adminValidation(w, r)
+}
+
+// GET /api/admin/stats shape expected by the panel: {stats:{...}}
+func (s *Server) panelStats(w http.ResponseWriter, r *http.Request) {
+	var total, pending, payments, completed, units int
+	_ = s.db.QueryRowContext(r.Context(), `SELECT
+		(SELECT count(*) FROM applicants),
+		(SELECT count(*) FROM applicants WHERE registration_stage='stage_1_registered' AND stage_2_status='pending'),
+		(SELECT count(*) FROM payments WHERE payment_status='pending' AND payment_method='offline'),
+		(SELECT count(*) FROM applicants WHERE registration_stage='stage_10_completed'),
+		(SELECT count(*) FROM units WHERE status='available')`).Scan(&total, &pending, &payments, &completed, &units)
+	rows, _ := s.many(r.Context(), `SELECT registration_stage AS stage, count(*)::int AS n FROM applicants GROUP BY 1`)
+	by := M{}
+	for _, x := range rows {
+		by[x["stage"].(string)] = x["n"]
+	}
+	var pendAgr, pendBank, today int
+	_ = s.db.QueryRowContext(r.Context(), `SELECT
+		(SELECT count(*) FROM applicants WHERE registration_stage='stage_6_agreement_receipt'),
+		(SELECT count(*) FROM loan_details l JOIN applicants a ON a.id=l.applicant_id WHERE a.registration_stage='stage_7_bank_document' AND l.loan_status='pending'
+		   AND l.upi_statement_path IS NOT NULL AND l.itr_year1_path IS NOT NULL AND l.itr_year2_path IS NOT NULL AND l.itr_year3_path IS NOT NULL AND l.bank_statement_path IS NOT NULL),
+		COALESCE((SELECT count FROM stage_2_daily_counter WHERE date=current_date),0)`).Scan(&pendAgr, &pendBank, &today)
+	writeJSON(w, 200, M{"success": true, "stats": M{"total": total, "pending_review": pending, "pending_payments": payments,
+		"completed": completed, "available_units": units, "by_stage": by,
+		"pending_agreement_receipts": pendAgr, "pending_bank_reviews": pendBank, "accepted_today": today, "daily_limit": 1000}})
+}
+
+// GET /api/admin/applicants?search=&stage=  (adds handled_by_name)
+func (s *Server) panelApplicants(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	search := q.Get("search")
+	if search == "" {
+		search = q.Get("q")
+	}
+	rows, err := s.many(r.Context(), `SELECT a.id,a.unique_id,a.first_name,a.last_name,a.email,a.phone,a.email_verified,a.phone_verified,
+		a.registration_stage,a.stage_2_status,a.stage_2_reason,a.stage_4_status,a.handling_admin_id,a.created_at,a.updated_at,
+		COALESCE(ur.display_name,'') AS handled_by_name
+		FROM applicants a LEFT JOIN LATERAL (SELECT display_name FROM user_roles WHERE user_id=a.handling_admin_id LIMIT 1) ur ON true
+		WHERE ($1='' OR a.registration_stage=$1)
+		AND ($2='' OR a.first_name||' '||a.last_name ILIKE '%'||$2||'%' OR a.unique_id ILIKE '%'||$2||'%'
+		     OR a.phone LIKE '%'||$2||'%' OR a.email ILIKE '%'||$2||'%' OR a.pan_number ILIKE $2)
+		ORDER BY a.created_at DESC LIMIT 500`, q.Get("stage"), search)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "applicants": rows})
+}
+
+// GET /api/admin/applicants/{id}/documents/{kind}: raw bytes of the latest upload of that kind
+func (s *Server) adminApplicantDoc(w http.ResponseWriter, r *http.Request) {
+	m, _ := s.one(r.Context(), `SELECT file_path FROM uploads WHERE applicant_id::text=$1 AND upload_type=$2 ORDER BY uploaded_at DESC`,
+		r.PathValue("id"), r.PathValue("kind"))
+	if m == nil {
+		fail(w, 404, "Document not found")
+		return
+	}
+	rel := filepath.Clean(m["file_path"].(string))
+	if strings.Contains(rel, "..") {
+		fail(w, 400, "Bad path")
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.UploadDir, rel))
+}
+
+// ---- units ----
+
+func (s *Server) panelUnits(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.many(r.Context(), `SELECT u.id,u.unit_number,u.tower,u.wing,u.floor,u.carpet_area_sqm AS carpet_area,
+		u.consideration_amount AS amount,u.status,
+		CASE WHEN a.id IS NULL THEN NULL ELSE a.unique_id||' - '||a.first_name||' '||a.last_name END AS allotted_to
+		FROM units u LEFT JOIN applicants a ON a.id=u.allocated_to ORDER BY u.floor,u.unit_number`)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "units": rows})
+}
+
+func (s *Server) eligibleApplicants(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.many(r.Context(), `SELECT id,unique_id,first_name,last_name FROM applicants
+		WHERE registration_stage='stage_4_allotment' ORDER BY created_at`)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "applicants": rows})
+}
+
+// POST /api/admin/units/{id}/allot {applicant_id}
+func (s *Server) panelAllot(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		ApplicantID string `json:"applicant_id"`
+	}
+	if !decode(r, &in) || in.ApplicantID == "" {
+		fail(w, 400, "applicant_id required")
+		return
+	}
+	unit := r.PathValue("id")
+	r.SetPathValue("id", in.ApplicantID)
+	rewriteBody(r, M{"unitId": unit})
+	s.adminAllot(w, r)
+}
+
+// ---- payments ----
+
+// GET /api/admin/payments?status=pending
+func (s *Server) panelPayments(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.many(r.Context(), `SELECT p.id,a.unique_id,a.first_name||' '||a.last_name AS applicant_name,p.amount,
+		p.payment_method AS mode,p.payment_status,p.offline_receipt_path,p.receipt_number,p.created_at
+		FROM payments p JOIN applicants a ON a.id=p.applicant_id
+		WHERE ($1='' OR p.payment_status=$1) ORDER BY p.created_at DESC LIMIT 500`, r.URL.Query().Get("status"))
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "payments": rows})
+}
+
+// POST /api/admin/payments/{id}/confirm|reject
+func (s *Server) panelPayAct(w http.ResponseWriter, r *http.Request) {
+	act := "accept"
+	switch r.PathValue("act") {
+	case "reject":
+		act = "reject"
+	case "confirm":
+	default:
+		fail(w, 404, "Unknown action")
+		return
+	}
+	rewriteBody(r, M{"action": act})
+	s.adminPaymentReview(w, r)
+}
+
+// ---- document settings ----
+
+func (s *Server) docSettings(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.many(r.Context(), `SELECT document_type AS kind, COALESCE(label,document_type) AS label, max_size_mb::float8 AS max_size_mb,
+		allowed_extensions, ai_validation FROM document_settings ORDER BY document_type`)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "settings": rows})
+}
+
+func (s *Server) docSettingSave(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		MaxSizeMB    float64 `json:"max_size_mb"`
+		AIValidation bool    `json:"ai_validation"`
+	}
+	if !decode(r, &in) || in.MaxSizeMB <= 0 || in.MaxSizeMB > 25 {
+		fail(w, 400, "max_size_mb must be between 0 and 25")
+		return
+	}
+	res, err := s.db.ExecContext(r.Context(), `UPDATE document_settings SET max_size_mb=$2, ai_validation=$3 WHERE document_type=$1`,
+		r.PathValue("kind"), in.MaxSizeMB, in.AIValidation)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		fail(w, 404, "Unknown document type")
+		return
+	}
+	s.audit(r.Context(), claimsOf(r).Sub, "document_setting", "document_settings", "", M{"kind": r.PathValue("kind"), "max": in.MaxSizeMB})
+	writeJSON(w, 200, M{"success": true})
+}
+
+// ---- user management ----
+
+var validRoles = map[string]bool{"super_admin": true, "admin": true, "finance": true, "allotment_manager": true, "auditor": true}
+
+func (s *Server) panelUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.many(r.Context(), `SELECT ur.user_id, COALESCE(ur.display_name,u.email) AS display_name, u.email, ur.role, ur.assigned_at
+		FROM user_roles ur JOIN users u ON u.id=ur.user_id ORDER BY ur.assigned_at, u.email`)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "users": rows})
+}
+
+type roleIn struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	Role        string `json:"role"`
+	DisplayName string `json:"display_name"`
+}
+
+func readRoleIn(w http.ResponseWriter, r *http.Request) (roleIn, bool) {
+	var in roleIn
+	if !decode(r, &in) || !reEmail.MatchString(normEmail(in.Email)) {
+		fail(w, 400, "Valid email required")
+		return in, false
+	}
+	if !validRoles[in.Role] {
+		fail(w, 400, "Invalid role")
+		return in, false
+	}
+	in.Email = normEmail(in.Email)
+	return in, true
+}
+
+// POST /api/admin/users/assign: give a role to an existing user
+func (s *Server) userAssign(w http.ResponseWriter, r *http.Request) {
+	in, ok := readRoleIn(w, r)
+	if !ok {
+		return
+	}
+	var id string
+	if s.db.QueryRowContext(r.Context(), `SELECT id FROM users WHERE email=$1`, in.Email).Scan(&id) != nil {
+		fail(w, 404, "No user with this email")
+		return
+	}
+	_, err := s.db.ExecContext(r.Context(), `INSERT INTO user_roles(user_id,role,display_name) VALUES ($1,$2,NULLIF($3,''))
+		ON CONFLICT (user_id,role) DO UPDATE SET display_name=COALESCE(NULLIF($3,''),user_roles.display_name)`, id, in.Role, in.DisplayName)
+	if err != nil {
+		fail(w, 500, "Could not assign role")
+		return
+	}
+	s.audit(r.Context(), claimsOf(r).Sub, "assign_role", "user", id, M{"role": in.Role})
+	writeJSON(w, 200, M{"success": true, "userId": id})
+}
+
+// POST /api/admin/users/create {email,password,role,display_name}
+func (s *Server) userCreate(w http.ResponseWriter, r *http.Request) {
+	in, ok := readRoleIn(w, r)
+	if !ok {
+		return
+	}
+	if len(in.Password) < 8 {
+		fail(w, 400, "Password must be at least 8 characters")
+		return
+	}
+	s.createUserWithRole(w, r, in, in.Password, nil)
+}
+
+// POST /api/admin/users/invite: no mail service is wired up, so a temporary password is generated and returned.
+func (s *Server) userInvite(w http.ResponseWriter, r *http.Request) {
+	in, ok := readRoleIn(w, r)
+	if !ok {
+		return
+	}
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	tmp := hex.EncodeToString(b)
+	s.createUserWithRole(w, r, in, tmp, M{"temp_password": tmp})
+}
+
+func (s *Server) createUserWithRole(w http.ResponseWriter, r *http.Request, in roleIn, pw string, extra M) {
+	var id string
+	if err := s.db.QueryRowContext(r.Context(), `INSERT INTO users(email,password_hash) VALUES ($1,$2) RETURNING id`, in.Email, hashPassword(pw)).Scan(&id); err != nil {
+		fail(w, 409, "User already exists - use Assign instead")
+		return
+	}
+	_, _ = s.db.ExecContext(r.Context(), `INSERT INTO user_roles(user_id,role,display_name) VALUES ($1,$2,NULLIF($3,''))`, id, in.Role, in.DisplayName)
+	s.audit(r.Context(), claimsOf(r).Sub, "create_user", "user", id, M{"role": in.Role})
+	out := M{"success": true, "userId": id}
+	for k, v := range extra {
+		out[k] = v
+	}
+	writeJSON(w, 201, out)
+}
+
+func (s *Server) userName(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		DisplayName string `json:"display_name"`
+	}
+	if !decode(r, &in) || strings.TrimSpace(in.DisplayName) == "" {
+		fail(w, 400, "display_name required")
+		return
+	}
+	if _, err := s.db.ExecContext(r.Context(), `UPDATE user_roles SET display_name=$2 WHERE user_id::text=$1`, r.PathValue("id"), strings.TrimSpace(in.DisplayName)); err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true})
+}
+
+// POST /api/admin/users/{id}/delete: removes the user's admin roles (the login account stays).
+func (s *Server) userDelete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == claimsOf(r).Sub {
+		fail(w, 409, "You cannot remove your own role")
+		return
+	}
+	var supers int
+	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*) FROM user_roles WHERE role='super_admin' AND user_id::text<>$1`, id).Scan(&supers)
+	if supers == 0 {
+		fail(w, 409, "At least one super admin must remain")
+		return
+	}
+	if _, err := s.db.ExecContext(r.Context(), `DELETE FROM user_roles WHERE user_id::text=$1`, id); err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	s.audit(r.Context(), claimsOf(r).Sub, "remove_roles", "user", id, nil)
+	writeJSON(w, 200, M{"success": true})
+}
+
+// ---- database browser (super_admin only; whitelisted tables) ----
+
+type dbTable struct {
+	sqlName  string
+	label    string
+	pk       string
+	hidden   []string // never returned / never writable
+	readOnly bool
+}
+
+var dbTables = map[string]dbTable{
+	"auth_users":        {"users", "Auth Users", "id", []string{"password_hash"}, true},
+	"applicants":        {"applicants", "Applicants", "id", nil, false},
+	"payments":          {"payments", "Payments", "id", []string{"razorpay_signature"}, false},
+	"units":             {"units", "Units", "id", nil, false},
+	"user_roles":        {"user_roles", "User Roles", "user_id", nil, false},
+	"loan_details":      {"loan_details", "Loan Details", "id", nil, false},
+	"uploads":           {"uploads", "Uploads", "id", nil, false},
+	"audit_logs":        {"audit_logs", "Audit Logs", "id", nil, true},
+	"document_settings": {"document_settings", "Document Settings", "document_type", nil, false},
+	"project_settings":  {"project_settings", "Project Settings", "id", nil, false},
+	"otp_verifications": {"otp_verifications", "OTP Verifications", "id", []string{"otp_code"}, true},
+}
+
+func (t dbTable) columns(s *Server, r *http.Request) []string {
+	rows, _ := s.many(r.Context(), `SELECT column_name AS c FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, t.sqlName)
+	var out []string
+next:
+	for _, x := range rows {
+		c := x["c"].(string)
+		for _, h := range t.hidden {
+			if h == c {
+				continue next
+			}
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func (s *Server) dbList(w http.ResponseWriter, r *http.Request) {
+	out := []M{}
+	for name, t := range dbTables {
+		var n int
+		_ = s.db.QueryRowContext(r.Context(), `SELECT count(*) FROM `+t.sqlName).Scan(&n)
+		out = append(out, M{"name": name, "label": t.label, "count": n})
+	}
+	writeJSON(w, 200, M{"success": true, "tables": out})
+}
+
+func (s *Server) dbRows(w http.ResponseWriter, r *http.Request) {
+	t, ok := dbTables[r.PathValue("table")]
+	if !ok {
+		fail(w, 404, "Unknown table")
+		return
+	}
+	cols := t.columns(s, r)
+	quoted := make([]string, len(cols))
+	for i, c := range cols {
+		quoted[i] = `"` + c + `"`
+	}
+	rows, err := s.many(r.Context(), `SELECT `+strings.Join(quoted, ",")+` FROM `+t.sqlName+` t WHERE ($1='' OR t::text ILIKE '%'||$1||'%') LIMIT 500`, r.URL.Query().Get("search"))
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	writeJSON(w, 200, M{"success": true, "columns": cols, "rows": rows, "readOnly": t.readOnly})
+}
+
+func (s *Server) dbUpdate(w http.ResponseWriter, r *http.Request) {
+	t, ok := dbTables[r.PathValue("table")]
+	if !ok || t.readOnly {
+		fail(w, 403, "Table is read-only")
+		return
+	}
+	var in struct {
+		Data map[string]any `json:"data"`
+	}
+	if !decode(r, &in) || len(in.Data) == 0 {
+		fail(w, 400, "data required")
+		return
+	}
+	allowed := map[string]bool{}
+	for _, c := range t.columns(s, r) {
+		if c != t.pk && c != "id" && c != "created_at" {
+			allowed[c] = true
+		}
+	}
+	patch := map[string]any{}
+	var cols []string
+	for k, v := range in.Data {
+		if allowed[k] {
+			patch[k] = v
+			cols = append(cols, `"`+k+`"`)
+		}
+	}
+	if len(patch) == 0 {
+		fail(w, 400, "No editable columns supplied")
+		return
+	}
+	cl := strings.Join(cols, ",")
+	pj, _ := json.Marshal(patch)
+	q := `UPDATE ` + t.sqlName + ` SET (` + cl + `) = (SELECT ` + cl + ` FROM jsonb_populate_record(NULL::` + t.sqlName + `, $1::jsonb)) WHERE ` + t.pk + `::text=$2`
+	res, err := s.db.ExecContext(r.Context(), q, string(pj), r.PathValue("id"))
+	if err != nil {
+		fail(w, 400, "Update failed: invalid value")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		fail(w, 404, "Row not found")
+		return
+	}
+	s.audit(r.Context(), claimsOf(r).Sub, "db_update", t.sqlName, "", M{"id": r.PathValue("id")})
+	writeJSON(w, 200, M{"success": true})
+}
+
+func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
+	t, ok := dbTables[r.PathValue("table")]
+	if !ok || t.readOnly {
+		fail(w, 403, "Table is read-only")
+		return
+	}
+	id := r.PathValue("id")
+	ctx := r.Context()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	defer tx.Rollback()
+	switch r.PathValue("table") {
+	case "applicants":
+		// free any unit, then drop the login too so the person can re-register
+		_, _ = tx.ExecContext(ctx, `UPDATE units SET status='available', allocated_to=NULL, allocated_at=NULL WHERE allocated_to::text=$1`, id)
+		_, err = tx.ExecContext(ctx, `DELETE FROM users WHERE id=(SELECT user_id FROM applicants WHERE id::text=$1)`, id)
+	case "units":
+		_, err = tx.ExecContext(ctx, `DELETE FROM units WHERE id::text=$1 AND allocated_to IS NULL`, id)
+	case "user_roles":
+		if id == claimsOf(r).Sub {
+			fail(w, 409, "You cannot remove your own role")
+			return
+		}
+		_, err = tx.ExecContext(ctx, `DELETE FROM user_roles WHERE user_id::text=$1`, id)
+	default:
+		_, err = tx.ExecContext(ctx, `DELETE FROM `+t.sqlName+` WHERE `+t.pk+`::text=$1`, id)
+	}
+	if err != nil || tx.Commit() != nil {
+		fail(w, 409, "Row cannot be deleted (it is referenced elsewhere)")
+		return
+	}
+	s.audit(ctx, claimsOf(r).Sub, "db_delete", t.sqlName, "", M{"id": id})
+	writeJSON(w, 200, M{"success": true})
+}

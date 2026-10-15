@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: pmay, POSTGRES_PASSWORD: pmay, POSTGRES_DB: pmay }
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d   # runs 001, 002, 003 on first start only
+    ports: ["5432:5432"]
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://pmay:pmay@db:5432/pmay?sslmode=disable
+    depends_on: [db]
+    ports: ["8080:8080"]
+    volumes:
+      - uploads:/data/uploads
+      - ./firebase.json:/secrets/firebase.json:ro   # Firebase service account key (push notifications)
+volumes: { pgdata: {}, uploads: {} }

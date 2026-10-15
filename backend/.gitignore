@@ -1,0 +1,37 @@
+# ---- secrets (never commit) ----
+.env
+**/.env
+firebase.json
+**/firebase.json
+google-services.json
+**/google-services.json
+*.jks
+*.keystore
+key.properties
+**/key.properties
+
+# ---- backend ----
+backend/uploads/
+uploads/
+
+# ---- flutter / android build + cache ----
+.dart_tool/
+**/.dart_tool/
+build/
+**/build/
+.gradle/
+**/.gradle/
+.kotlin/
+**/.kotlin/
+.idea/
+**/.idea/
+.flutter-plugins
+.flutter-plugins-dependencies
+local.properties
+**/local.properties
+*.iml
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.vscode/
