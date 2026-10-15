@@ -19,8 +19,11 @@ type Server struct {
 
 func main() {
 	cfg := loadConfig()
-	if cfg.JWTSecret == "change-me" {
-		log.Println("WARNING: JWT_SECRET is default, set a strong value in production")
+	if cfg.JWTSecret == "change-me" || len(cfg.JWTSecret) < 32 {
+		if !cfg.DevMode {
+			log.Fatal("JWT_SECRET must be set to a random string of 32+ characters (or set DEV_MODE=true for local testing)")
+		}
+		log.Println("WARNING: weak JWT_SECRET (allowed only because DEV_MODE=true)")
 	}
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
@@ -31,6 +34,7 @@ func main() {
 		log.Fatal("db: ", err)
 	}
 	s := &Server{cfg: cfg, db: db, fcm: newFCM(cfg)}
+	s.migrate()
 	_ = os.MkdirAll(cfg.UploadDir, 0o755)
 	s.bootstrapAdmin()
 
