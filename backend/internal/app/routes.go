@@ -12,6 +12,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/login", s.login)
 	mux.HandleFunc("GET /api/public/admins", s.publicAdmins)
 	mux.HandleFunc("POST /api/otp/send", s.sendOTP)
+	mux.HandleFunc("POST /api/ocr/extract", s.ocrExtract)
 	mux.HandleFunc("POST /api/otp/verify", s.verifyOTP)
 
 	// applicant

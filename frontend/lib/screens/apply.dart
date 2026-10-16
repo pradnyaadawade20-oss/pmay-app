@@ -50,6 +50,29 @@ class _ApplyScreenState extends State<ApplyScreen> {
 
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
 
+  /// Reads the chosen Aadhaar / PAN image on the server (OCR) and pre-fills EMPTY form fields.
+  /// Never overwrites what the user typed; silently does nothing if OCR is unavailable.
+  Future<void> _autoFill(String key, String path) async {
+    if (!const {'aadhar_front', 'aadhar_back', 'pan_front'}.contains(key)) return;
+    try {
+      final r = await context.read<AppState>().api.postMultipart('/ocr/extract', fields: {'type': key}, files: {'file': path});
+      final f = Map<String, dynamic>.from(r['fields'] ?? {});
+      var filled = 0;
+      setState(() {
+        f.forEach((k, v) {
+          final c = _c[k];
+          if (c != null && c.text.trim().isEmpty && '$v'.trim().isNotEmpty) {
+            c.text = '$v';
+            filled++;
+          }
+        });
+      });
+      if (filled > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$filled field(s) filled from your document. Please check them.')));
+      }
+    } catch (_) {/* OCR is a convenience only */}
+  }
+
   // ---------- UI helpers ----------
   Widget _section(String t) => Padding(
         padding: const EdgeInsets.only(top: 22, bottom: 14),
@@ -151,7 +174,10 @@ class _ApplyScreenState extends State<ApplyScreen> {
         borderRadius: BorderRadius.circular(8),
         onTap: () async {
           final p = await pickDoc();
-          if (p != null) setState(() => _files[key] = p);
+          if (p != null) {
+            setState(() => _files[key] = p);
+            _autoFill(key, p);
+          }
         },
         child: Container(
           width: double.infinity,

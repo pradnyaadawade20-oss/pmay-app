@@ -88,7 +88,7 @@ func (s *Server) adminValidation(w http.ResponseWriter, r *http.Request) {
 	if in.Action == "reject" {
 		_, _ = tx.ExecContext(r.Context(), `UPDATE applicants SET stage_2_status='rejected', stage_2_reason=$2, stage_2_verified_by=$3, stage_2_verified_at=now() WHERE id=$1`, id, in.Reason, uid)
 	} else {
-		if !ev && !pv {
+		if s.cfg.RequireContactVerified && !ev && !pv {
 			fail(w, 409, "Applicant has not verified email or phone yet")
 			return
 		}

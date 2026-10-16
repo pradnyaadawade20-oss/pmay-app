@@ -33,6 +33,8 @@ services:
         value: /data/uploads
       - key: DEV_MODE
         value: "false"           # true = OTP is returned in the API response (testing only, never for real users)
+      - key: REQUIRE_CONTACT_VERIFIED
+        value: "false"           # TEMPORARY: lets admins accept applicants who skipped OTP. Set "true" once SMTP/SMS works
       - key: CORS_ORIGINS
         value: "*"
       - key: FCM_SERVICE_ACCOUNT_FILE
@@ -41,6 +43,16 @@ services:
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
+        sync: false
+      - key: SMTP_HOST            # e.g. smtp.gmail.com (SMTP is used first; Resend is the fallback)
+        sync: false
+      - key: SMTP_PORT            # 587 (STARTTLS) or 465 (TLS)
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS            # Gmail: 16-char App Password, not the account password
+        sync: false
+      - key: SMTP_FROM            # optional, e.g. PMAY Registration <you@gmail.com>
         sync: false
       - key: RESEND_API_KEY
         sync: false

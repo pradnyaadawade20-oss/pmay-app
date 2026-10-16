@@ -469,7 +469,10 @@ func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 	case "applicants":
 		// free any unit, then drop the login too so the person can re-register
 		_, _ = tx.ExecContext(ctx, `UPDATE units SET status='available', allocated_to=NULL, allocated_at=NULL WHERE allocated_to::text=$1`, id)
-		_, err = tx.ExecContext(ctx, `DELETE FROM users WHERE id=(SELECT user_id FROM applicants WHERE id::text=$1)`, id)
+		var userID string
+		if err = tx.QueryRowContext(ctx, `DELETE FROM applicants WHERE id::text=$1 RETURNING user_id`, id).Scan(&userID); err == nil {
+			_, err = tx.ExecContext(ctx, `DELETE FROM users WHERE id=$1`, userID)
+		}
 	case "units":
 		_, err = tx.ExecContext(ctx, `DELETE FROM units WHERE id::text=$1 AND allocated_to IS NULL`, id)
 	case "user_roles":
