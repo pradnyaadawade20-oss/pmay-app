@@ -1,46 +1,6 @@
 package app
 
-<<<<<<< HEAD:backend/server.go
-import (
-	"context"
-	"database/sql"
-	"log"
-	"net/http"
-	"os"
-	"strings"
-
-	_ "github.com/lib/pq"
-)
-
-type Server struct {
-	cfg Config
-	db  *sql.DB
-	fcm *fcmClient // nil when push is not configured
-}
-
-func main() {
-	cfg := loadConfig()
-	if cfg.JWTSecret == "change-me" || len(cfg.JWTSecret) < 32 {
-		if !cfg.DevMode {
-			log.Fatal("JWT_SECRET must be set to a random string of 32+ characters (or set DEV_MODE=true for local testing)")
-		}
-		log.Println("WARNING: weak JWT_SECRET (allowed only because DEV_MODE=true)")
-	}
-	db, err := sql.Open("postgres", cfg.DatabaseURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	db.SetMaxOpenConns(20)
-	if err := db.Ping(); err != nil {
-		log.Fatal("db: ", err)
-	}
-	s := &Server{cfg: cfg, db: db, fcm: newFCM(cfg)}
-	s.migrate()
-	_ = os.MkdirAll(cfg.UploadDir, 0o755)
-	s.bootstrapAdmin()
-=======
 import "net/http"
->>>>>>> 7cb7660 (Initial commit: PMAY frontend + backend):backend/internal/app/routes.go
 
 // routes registers every HTTP endpoint (public, applicant, admin).
 func (s *Server) routes() http.Handler {

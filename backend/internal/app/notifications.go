@@ -172,11 +172,7 @@ func (s *Server) deleteDeviceToken(w http.ResponseWriter, r *http.Request) {
 		_, _ = s.db.ExecContext(r.Context(), `INSERT INTO notifications(applicant_id,kind,title,body) VALUES ($1,'logout','Logged out','You have been logged out of Krutarth - PMAY.')`, appID)
 		if s.fcm != nil {
 			ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
-<<<<<<< HEAD:backend/push.go
-			if err := s.fcm.send(ctx, in.Token, "Logged out", "You have been logged out of Krutarth - PMAY.", map[string]string{"kind": "logout"}); err != nil {
-=======
 			if err := s.fcm.Send(ctx, in.Token, "Logged out", "You have been logged out of Krutarth - PMAY.", map[string]string{"kind": "logout"}); err != nil {
->>>>>>> 7cb7660 (Initial commit: PMAY frontend + backend):backend/internal/app/notifications.go
 				log.Println("push logout:", err)
 			}
 			cancel()

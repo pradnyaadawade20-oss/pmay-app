@@ -40,15 +40,9 @@ func (s *Server) sendOTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, 500, "Failed to store OTP")
 			return
 		}
-<<<<<<< HEAD:backend/otp.go
-		if s.cfg.smtpEnabled() {
-			html := fmt.Sprintf(`<h2>PMAY Registration</h2><p>Your OTP is <b style="font-size:28px;letter-spacing:6px">%s</b></p><p>Valid for 10 minutes.</p>`, otp)
-			if err := sendSMTP(s.cfg, email, "Your OTP for PMAY Registration", html); err != nil {
-=======
 		if s.cfg.SMTPEnabled() {
 			html := fmt.Sprintf(`<h2>PMAY Registration</h2><p>Your OTP is <b style="font-size:28px;letter-spacing:6px">%s</b></p><p>Valid for 10 minutes.</p>`, otp)
 			if err := mailer.Send(s.cfg, email, "Your OTP for PMAY Registration", html); err != nil {
->>>>>>> 7cb7660 (Initial commit: PMAY frontend + backend):backend/internal/app/otp.go
 				log.Println("smtp send failed:", err)
 				fail(w, 502, "Failed to send email OTP")
 				return
