@@ -1,5 +1,6 @@
-package main
+package app
 
+<<<<<<< HEAD:backend/server.go
 import (
 	"context"
 	"database/sql"
@@ -37,7 +38,12 @@ func main() {
 	s.migrate()
 	_ = os.MkdirAll(cfg.UploadDir, 0o755)
 	s.bootstrapAdmin()
+=======
+import "net/http"
+>>>>>>> 7cb7660 (Initial commit: PMAY frontend + backend):backend/internal/app/routes.go
 
+// routes registers every HTTP endpoint (public, applicant, admin).
+func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, M{"ok": true}) })
 
@@ -95,59 +101,5 @@ func main() {
 	mux.HandleFunc("POST /api/admin/db/tables/{table}/{id}/update", s.authed(s.dbUpdate, "super_admin"))
 	mux.HandleFunc("POST /api/admin/db/tables/{table}/{id}/delete", s.authed(s.dbDelete, "super_admin"))
 
-	log.Println("PMAY API listening on :" + cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, s.cors(mux)))
-}
-
-func (s *Server) cors(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", s.cfg.CORSOrigins)
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(204)
-			return
-		}
-		r.Body = http.MaxBytesReader(w, r.Body, 40<<20)
-		next.ServeHTTP(w, r)
-	})
-}
-
-// bootstrapAdmin creates the first super_admin from ADMIN_EMAIL / ADMIN_PASSWORD (if set and missing).
-func (s *Server) bootstrapAdmin() {
-	if s.cfg.AdminEmail == "" || s.cfg.AdminPassword == "" {
-		return
-	}
-	ctx := context.Background()
-	var id string
-	email := normEmail(s.cfg.AdminEmail)
-	err := s.db.QueryRowContext(ctx, `INSERT INTO users(email,password_hash) VALUES ($1,$2)
-		ON CONFLICT (email) DO UPDATE SET email=EXCLUDED.email RETURNING id`, email, hashPassword(s.cfg.AdminPassword)).Scan(&id)
-	if err != nil {
-		log.Println("bootstrap admin:", err)
-		return
-	}
-	_, _ = s.db.ExecContext(ctx, `INSERT INTO user_roles(user_id,role,display_name) VALUES ($1,'super_admin','Super Admin') ON CONFLICT DO NOTHING`, id)
-	log.Println("super_admin ready:", email)
-}
-
-func isUniqueErr(err error) string {
-	if err == nil {
-		return ""
-	}
-	m := err.Error()
-	if strings.Contains(m, "duplicate key") {
-		switch {
-		case strings.Contains(m, "aadhar"):
-			return "This Aadhaar number is already registered"
-		case strings.Contains(m, "pan_number"):
-			return "This PAN number is already registered"
-		case strings.Contains(m, "phone"):
-			return "This phone number is already registered"
-		case strings.Contains(m, "email"):
-			return "This email is already registered"
-		}
-		return "Already registered"
-	}
-	return ""
+	return mux
 }

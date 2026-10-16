@@ -1,4 +1,4 @@
-package main
+package app
 
 // Endpoints used by the PMAY admin panel (Flutter web). They reuse the same
 // database and business rules as the applicant API in admin.go.

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -24,7 +24,7 @@ func env(k, d string) string {
 	return d
 }
 
-func loadConfig() Config {
+func Load() Config {
 	return Config{
 		Port:                  env("PORT", "8080"),
 		DatabaseURL:           env("DATABASE_URL", "postgres://pmay:pmay@localhost:5432/pmay?sslmode=disable"),
@@ -48,4 +48,9 @@ func loadConfig() Config {
 		FCMServiceAccountFile: os.Getenv("FCM_SERVICE_ACCOUNT_FILE"),
 		FCMServiceAccountJSON: os.Getenv("FCM_SERVICE_ACCOUNT_JSON"),
 	}
+}
+
+// SMTPEnabled is true when SMTP_HOST, SMTP_USER and SMTP_PASS are all set.
+func (c Config) SMTPEnabled() bool {
+	return c.SMTPHost != "" && c.SMTPUser != "" && c.SMTPPass != ""
 }
