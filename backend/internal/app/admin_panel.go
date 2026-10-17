@@ -5,6 +5,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -373,7 +374,7 @@ var dbTables = map[string]dbTable{
 	"applicants":        {"applicants", "Applicants", "id", nil, false},
 	"payments":          {"payments", "Payments", "id", []string{"razorpay_signature"}, false},
 	"units":             {"units", "Units", "id", nil, false},
-	"user_roles":        {"user_roles", "User Roles", "user_id", nil, false},
+	"user_roles":        {"user_roles", "User Roles", "id", nil, false}, // rows are identified by their own id (a user can hold several roles)
 	"loan_details":      {"loan_details", "Loan Details", "id", nil, false},
 	"uploads":           {"uploads", "Uploads", "id", nil, false},
 	"audit_logs":        {"audit_logs", "Audit Logs", "id", nil, true},
@@ -446,6 +447,26 @@ func (s *Server) dbUpdate(w http.ResponseWriter, r *http.Request) {
 			allowed[c] = true
 		}
 	}
+	if r.PathValue("table") == "user_roles" {
+		delete(allowed, "user_id") // a role row cannot be moved to another user
+		if role, ok := in.Data["role"].(string); ok && role != "super_admin" && !validRoles[role] {
+			fail(w, 400, "Invalid role")
+			return
+		}
+		if role, ok := in.Data["role"].(string); ok && role != "super_admin" {
+			var cur, owner string
+			if s.db.QueryRowContext(r.Context(), `SELECT role, user_id::text FROM user_roles WHERE id::text=$1`, r.PathValue("id")).Scan(&cur, &owner) == nil && cur == "super_admin" {
+				if owner == claimsOf(r).Sub {
+					fail(w, 409, "You cannot change your own super admin role")
+					return
+				}
+				if s.superAdminCount(r.Context()) <= 1 {
+					fail(w, 409, "At least one super admin must remain")
+					return
+				}
+			}
+		}
+	}
 	patch := map[string]any{}
 	var cols []string
 	for k, v := range in.Data {
@@ -499,11 +520,20 @@ func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 	case "units":
 		_, err = tx.ExecContext(ctx, `DELETE FROM units WHERE id::text=$1 AND allocated_to IS NULL`, id)
 	case "user_roles":
-		if id == claimsOf(r).Sub {
+		var owner, role string
+		if err := tx.QueryRowContext(ctx, `SELECT user_id::text, role FROM user_roles WHERE id::text=$1`, id).Scan(&owner, &role); err != nil {
+			fail(w, 404, "Row not found")
+			return
+		}
+		if owner == claimsOf(r).Sub {
 			fail(w, 409, "You cannot remove your own role")
 			return
 		}
-		_, err = tx.ExecContext(ctx, `DELETE FROM user_roles WHERE user_id::text=$1`, id)
+		if role == "super_admin" && s.superAdminCount(ctx) <= 1 {
+			fail(w, 409, "At least one super admin must remain")
+			return
+		}
+		_, err = tx.ExecContext(ctx, `DELETE FROM user_roles WHERE id::text=$1`, id)
 	default:
 		_, err = tx.ExecContext(ctx, `DELETE FROM `+t.sqlName+` WHERE `+t.pk+`::text=$1`, id)
 	}
@@ -535,4 +565,10 @@ func (s *Server) systemStatus(w http.ResponseWriter, r *http.Request) {
 	status["push"] = M{"ok": s.fcm != nil, "detail": "Firebase push"}
 	status["ocr"] = M{"ok": len(s.cfg.GeminiAPIKeys) > 0, "detail": fmt.Sprintf("%d Gemini key(s)", len(s.cfg.GeminiAPIKeys))}
 	writeJSON(w, 200, M{"success": true, "status": status})
+}
+
+func (s *Server) superAdminCount(ctx context.Context) int {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM user_roles WHERE role='super_admin'`).Scan(&n)
+	return n
 }
