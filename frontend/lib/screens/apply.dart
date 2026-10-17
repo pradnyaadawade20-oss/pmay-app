@@ -54,6 +54,9 @@ class _ApplyScreenState extends State<ApplyScreen> {
   /// Never overwrites what the user typed; silently does nothing if OCR is unavailable.
   Future<void> _autoFill(String key, String path) async {
     if (!const {'aadhar_front', 'aadhar_back', 'pan_front'}.contains(key)) return;
+    final sm = ScaffoldMessenger.of(context);
+    sm.hideCurrentSnackBar();
+    sm.showSnackBar(const SnackBar(duration: Duration(minutes: 2), content: Text('Reading your document...')));
     try {
       final r = await context.read<AppState>().api.postMultipart('/ocr/extract', fields: {'type': key}, files: {'file': path});
       final f = Map<String, dynamic>.from(r['fields'] ?? {});
@@ -67,10 +70,15 @@ class _ApplyScreenState extends State<ApplyScreen> {
           }
         });
       });
-      if (filled > 0 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$filled field(s) filled from your document. Please check them.')));
-      }
-    } catch (_) {/* OCR is a convenience only */}
+      sm.hideCurrentSnackBar();
+      sm.showSnackBar(SnackBar(
+          content: Text(filled > 0
+              ? '$filled field(s) filled from your document. Please check them.'
+              : 'Could not read details from this image. Please type them.')));
+    } catch (_) {
+      sm.hideCurrentSnackBar();
+      sm.showSnackBar(const SnackBar(content: Text('Could not read this document automatically. Please type the details.')));
+    }
   }
 
   // ---------- UI helpers ----------

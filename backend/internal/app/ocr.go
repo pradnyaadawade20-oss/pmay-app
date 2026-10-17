@@ -64,7 +64,13 @@ func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "Server error")
 		return
 	}
-	text, err := ocr.Text(r.Context(), tmp.Name())
+	path := tmp.Name()
+	small := path + ".small.png"
+	defer os.Remove(small)
+	if ocr.Prepare(path, small) == nil { // grayscale + shrink; falls back to the original if it can't be decoded
+		path = small
+	}
+	text, err := ocr.Text(r.Context(), path)
 	if err != nil {
 		fail(w, 502, "Could not read the image")
 		return

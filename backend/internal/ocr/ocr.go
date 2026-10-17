@@ -20,9 +20,11 @@ func Text(ctx context.Context, imagePath string) (string, error) {
 	if !Available() {
 		return "", errors.New("tesseract is not installed")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 80*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "tesseract", imagePath, "stdout", "-l", lang(), "--psm", "6").Output()
+	cmd := exec.CommandContext(ctx, "tesseract", imagePath, "stdout", "-l", lang(), "--psm", "6")
+	cmd.Env = append(os.Environ(), "OMP_THREAD_LIMIT=1") // 1 thread: more only slows down small servers
+	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("tesseract: %w", err)
 	}
