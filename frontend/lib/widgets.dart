@@ -99,47 +99,46 @@ class RegistrationProcess extends StatelessWidget {
     (Icons.account_balance_rounded, 'Bank Loan', 'Loan processing'),
     (Icons.key_rounded, 'Possession', 'Final handover'),
   ];
-  static const _colors = [Color(0xFFF57C20), Color(0xFF1976D2), Color(0xFF1E8E4E), Color(0xFF1A2F6B)];
+  // "Soft Blue + White" theme
+  static const _accent = Color(0xFF2272D6);
+  static const _border = Color(0xFFC8D9F2);
+  static const _title = Color(0xFF1E2F4D);
+  static const _subtitle = Color(0xFF5B6B82);
 
   Widget _card(int i) {
-    final color = _colors[i % _colors.length];
     final n = '${i + 1}';
     return Container(
-      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color.withValues(alpha: 0.10), Colors.white],
-            stops: const [0, 0.65]),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.16), blurRadius: 14, offset: const Offset(0, 6))],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+        boxShadow: [BoxShadow(color: _accent.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(height: 5, color: color),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(13)),
-                  child: Icon(_steps[i].$1, color: color, size: 25),
-                ),
-                const SizedBox(width: 10),
-                Text('STEP $n',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: color)),
-              ]),
-              const SizedBox(height: 14),
-              Text(_steps[i].$2,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: Color(0xFF1B1B1B))),
-              const SizedBox(height: 4),
-              Text(_steps[i].$3, style: const TextStyle(fontSize: 12.5, color: Colors.black54, height: 1.35)),
-            ]),
-          ),
-      ]),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+              width: 64,
+              height: 4,
+              decoration: BoxDecoration(color: _accent, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 12),
+          Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+              child: Icon(_steps[i].$1, color: _accent, size: 25),
+            ),
+            const SizedBox(width: 10),
+            Text('STEP $n',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: _accent)),
+          ]),
+          const SizedBox(height: 14),
+          Text(_steps[i].$2, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: _title)),
+          const SizedBox(height: 4),
+          Text(_steps[i].$3, style: const TextStyle(fontSize: 12.5, color: _subtitle, height: 1.35)),
+        ]),
+      ),
     );
   }
 

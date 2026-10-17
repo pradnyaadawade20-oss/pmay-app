@@ -24,7 +24,7 @@ class _Note {
 }
 
 (IconData, Color) _style(String kind) {
-  final red = Colors.red;
+  const red = Colors.red;
   final green = Colors.green.shade700;
   return switch (kind) {
     'validation_accepted' => (Icons.payments_outlined, kBlue),
@@ -53,7 +53,7 @@ List<_Note> _build(AppState s) {
   return [
     if (!verified)
       _Note('verify', Icons.verified_user_outlined, kOrange, 'Verify your account',
-          'Verify your email or phone number to continue. Tap to verify now.', _Go.verify, now, true),
+          'Verify your email or phone number to continue. Tap to verify now.', _Go.verify, now, !s.verifyNoteRead),
     for (final n in s.notifications) _fromServer(n, now),
   ];
 }
@@ -109,13 +109,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
     final items = _build(s);
-    final unread = s.unread;
+    final anyUnread = items.any((n) => n.unread);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
           TextButton.icon(
-            onPressed: unread == 0 ? null : () => s.markAllRead(),
+            onPressed: anyUnread ? () => s.markAllRead() : null,
             icon: const Icon(Icons.done_all, size: 18),
             label: const Text('Mark all as read', style: TextStyle(fontSize: 12.5)),
             style: TextButton.styleFrom(foregroundColor: Colors.white, disabledForegroundColor: Colors.white54),

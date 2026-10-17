@@ -1,0 +1,52 @@
+# Render Blueprint: Go API (Docker) + Postgres. Every push to `main` auto-deploys the API.
+# Database migrations run automatically when the API starts (backend/migrate.go).
+databases:
+  - name: pmay-db
+    region: singapore            # closest to India; API and DB must be in the SAME region
+    plan: free                   # FREE DB EXPIRES AFTER 30 DAYS -> upgrade to a paid plan before that
+    databaseName: pmay
+    user: pmay
+
+services:
+  - type: web
+    name: pmay-api
+    runtime: docker
+    region: singapore
+    plan: starter                # paid: needed for the persistent disk (uploaded documents) and no sleep
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true             # git push -> build -> deploy
+    disk:
+      name: uploads
+      mountPath: /data/uploads   # applicant documents live here (survives redeploys)
+      sizeGB: 5
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pmay-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: UPLOAD_DIR
+        value: /data/uploads
+      - key: DEV_MODE
+        value: "false"           # true = OTP is returned in the API response (testing only, never for real users)
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: FCM_SERVICE_ACCOUNT_FILE
+        value: /etc/secrets/firebase.json   # add the file in Dashboard -> Environment -> Secret Files
+      # ---- asked for during Blueprint setup (not stored in git) ----
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MSG91_AUTH_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

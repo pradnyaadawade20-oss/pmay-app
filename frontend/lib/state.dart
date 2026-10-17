@@ -21,6 +21,7 @@ class AppState extends ChangeNotifier {
   // ---- notifications: stored on the server (/me/notifications) ----
   List<Map<String, dynamic>> notifications = [];
   int unread = 0;
+  bool verifyNoteRead = false; // local "Verify your account" card
 
   Future<void> loadNotifications() async {
     if (!loggedIn) return;
@@ -33,7 +34,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> markRead(String id) async {
-    final i = notifications.indexWhere((n) => n['id'] == id);
+    if (id == 'verify') {
+      if (!verifyNoteRead) {
+        verifyNoteRead = true;
+        notifyListeners();
+      }
+      return;
+    }
+    final i = notifications.indexWhere((n) => '${n['id']}' == id);
     if (i < 0 || notifications[i]['read_at'] != null) return;
     notifications[i]['read_at'] = DateTime.now().toIso8601String(); // optimistic
     unread = unread > 0 ? unread - 1 : 0;
@@ -49,6 +57,7 @@ class AppState extends ChangeNotifier {
       n['read_at'] ??= now;
     }
     unread = 0;
+    verifyNoteRead = true;
     notifyListeners();
     try {
       await api.postJson('/me/notifications/read', {'all': true});
@@ -148,6 +157,7 @@ class AppState extends ChangeNotifier {
     roles = [];
     notifications = [];
     unread = 0;
+    verifyNoteRead = false;
     notifyListeners();
   }
 }

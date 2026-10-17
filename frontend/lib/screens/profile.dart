@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../data.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -8,32 +7,10 @@ import 'apply.dart';
 import 'dashboard.dart';
 import 'login.dart';
 import 'notifications.dart';
+import 'profile_pages.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  void _details(BuildContext c, Map<String, dynamic>? a) {
-    if (a == null) {
-      toast(c, 'No profile found', error: true);
-      return;
-    }
-    Widget row(String k, String? v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(children: [
-          SizedBox(width: 110, child: Text(k, style: const TextStyle(color: Colors.black54))),
-          Expanded(child: Text(v ?? '-', style: const TextStyle(fontWeight: FontWeight.w600))),
-        ]));
-    showModalBottomSheet(
-        context: c,
-        builder: (_) => Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              row('Name', '${a['first_name']} ${a['last_name']}'),
-              row('Applicant ID', a['unique_id']?.toString()),
-              row('Email', a['email']?.toString()),
-              row('Mobile', a['phone']?.toString()),
-            ])));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,22 +62,21 @@ class ProfileScreen extends StatelessWidget {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
           }),
           const Divider(height: 1),
-          item(Icons.person_outline, 'Personal Details', '', () => _details(context, a)),
+          item(Icons.person_outline, 'Personal Details', 'Your registration information', () {
+            if (a == null) {
+              toast(context, 'No profile found', error: true);
+              return;
+            }
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDetailsScreen()));
+          }),
           const Divider(height: 1),
-          item(Icons.language, 'Language', 'English', () => toast(context, 'More languages coming soon')),
+          item(Icons.language, 'Language', 'English', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LanguageScreen()))),
           const Divider(height: 1),
-          item(Icons.notifications_none, 'Notifications', '', () => openNotifications(context)),
+          item(Icons.notifications_none, 'Notifications', 'Updates about your application', () => openNotifications(context)),
           const Divider(height: 1),
-          item(Icons.help_outline, 'Help & Support', '', () => showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                    title: const Text('Help & Support'),
-                    content: const Text('Phone: $supportPhone\nEmail: $supportEmail'),
-                    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-                  ))),
+          item(Icons.help_outline, 'Help & Support', 'Contact us & FAQs', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen()))),
           const Divider(height: 1),
-          item(Icons.info_outline, 'About App', '', () => showAboutDialog(
-              context: context, applicationName: 'Krutarth - PMAY', applicationVersion: '1.0.0')),
+          item(Icons.info_outline, 'About App', 'Version 1.0.0', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen()))),
         ]),
       ),
       const SizedBox(height: 16),

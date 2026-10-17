@@ -121,20 +121,24 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final a = s.applicant!;
     switch (s.stage) {
       case 'stage_1_registered':
-        if (a['email_verified'] != true && a['phone_verified'] != true) {
-          return InfoCard(icon: Icons.verified_user, color: Colors.orange, title: 'Verify your account',
-              message: 'Verify your phone or email to continue.', children: [
-            FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OtpScreen())), child: const Text('Verify now'))
-          ]);
-        }
         if (a['stage_2_status'] == 'rejected') {
           return InfoCard(icon: Icons.cancel, color: Colors.red, title: 'Application rejected', message: '${a['stage_2_reason'] ?? 'Please contact support.'}');
         }
-        return const InfoCard(icon: Icons.schedule, color: Colors.amber, title: 'Awaiting Validation',
-            message: 'Your documents are being reviewed by our team.', children: [
-          Text('Please wait while we verify your Aadhar and PAN documents. This usually takes 1-2 business days. '
-              'You will be notified once your documents are verified.',
-              style: TextStyle(color: Colors.black54, height: 1.4)),
+        final unverified = a['email_verified'] != true && a['phone_verified'] != true;
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const InfoCard(icon: Icons.schedule, color: Colors.amber, title: 'Awaiting Validation',
+              message: 'Your documents are being reviewed by our team.', children: [
+            Text('Please wait while we verify your Aadhar and PAN documents. This usually takes 1-2 business days. '
+                'You will be notified once your documents are verified.',
+                style: TextStyle(color: Colors.black54, height: 1.4)),
+          ]),
+          if (unverified) ...[
+            const SizedBox(height: 12),
+            InfoCard(icon: Icons.verified_user, color: Colors.orange, title: 'Verify your account',
+                message: 'Verify your phone or email to continue.', children: [
+              FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OtpScreen())), child: const Text('Verify now'))
+            ]),
+          ],
         ]);
       case 'stage_3_payment':
         final pending = s.payments.where((p) => p['payment_status'] == 'pending').isNotEmpty;
