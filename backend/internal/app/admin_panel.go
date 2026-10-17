@@ -8,10 +8,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // rewriteBody replaces the request JSON body (used to adapt panel payloads to existing handlers).
@@ -83,15 +86,35 @@ func (s *Server) panelApplicants(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, M{"success": true, "applicants": rows})
 }
 
-// GET /api/admin/applicants/{id}/documents/{kind}: raw bytes of the latest upload of that kind
+// docColumns maps a document kind to the column holding its file path (besides the uploads table).
+var docColumns = map[string]string{
+	"upi_statement":     `SELECT upi_statement_path AS p FROM loan_details WHERE applicant_id::text=$1`,
+	"itr_year1":         `SELECT itr_year1_path AS p FROM loan_details WHERE applicant_id::text=$1`,
+	"itr_year2":         `SELECT itr_year2_path AS p FROM loan_details WHERE applicant_id::text=$1`,
+	"itr_year3":         `SELECT itr_year3_path AS p FROM loan_details WHERE applicant_id::text=$1`,
+	"bank_statement":    `SELECT bank_statement_path AS p FROM loan_details WHERE applicant_id::text=$1`,
+	"agreement_signed":  `SELECT agreement_receipt_path AS p FROM applicants WHERE id::text=$1`,
+	"bank_loan_receipt": `SELECT bank_loan_receipt_path AS p FROM applicants WHERE id::text=$1`,
+	"mortgage_receipt":  `SELECT mortgage_receipt_path AS p FROM applicants WHERE id::text=$1`,
+	"payment_receipt":   `SELECT offline_receipt_path AS p FROM payments WHERE applicant_id::text=$1 AND offline_receipt_path IS NOT NULL ORDER BY created_at DESC`,
+}
+
+// GET /api/admin/applicants/{id}/documents/{kind}: raw bytes of the applicant's file of that kind
+// (registration documents, signed agreement, bank documents, receipts).
 func (s *Server) adminApplicantDoc(w http.ResponseWriter, r *http.Request) {
-	m, _ := s.one(r.Context(), `SELECT file_path FROM uploads WHERE applicant_id::text=$1 AND upload_type=$2 ORDER BY uploaded_at DESC`,
-		r.PathValue("id"), r.PathValue("kind"))
-	if m == nil {
+	id, kind := r.PathValue("id"), r.PathValue("kind")
+	q, ok := docColumns[kind]
+	args := []any{id}
+	if !ok {
+		q, args = `SELECT file_path AS p FROM uploads WHERE applicant_id::text=$1 AND upload_type=$2 ORDER BY uploaded_at DESC`, []any{id, kind}
+	}
+	m, _ := s.one(r.Context(), q, args...)
+	p, _ := m["p"].(string)
+	if p == "" {
 		fail(w, 404, "Document not found")
 		return
 	}
-	rel := filepath.Clean(m["file_path"].(string))
+	rel := filepath.Clean(p)
 	if strings.Contains(rel, "..") {
 		fail(w, 400, "Bad path")
 		return
@@ -490,4 +513,26 @@ func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(ctx, claimsOf(r).Sub, "db_delete", t.sqlName, "", M{"id": id})
 	writeJSON(w, 200, M{"success": true})
+}
+
+// GET /api/admin/system-status: live health for the dashboard (all values come from real checks).
+func (s *Server) systemStatus(w http.ResponseWriter, r *http.Request) {
+	status := M{}
+	start := time.Now()
+	if err := s.db.PingContext(r.Context()); err != nil {
+		status["database"] = M{"ok": false, "detail": "unreachable"}
+	} else {
+		status["database"] = M{"ok": true, "detail": fmt.Sprintf("connected (%d ms)", time.Since(start).Milliseconds())}
+	}
+	probe := filepath.Join(s.cfg.UploadDir, ".healthcheck")
+	if err := os.WriteFile(probe, []byte("ok"), 0o644); err != nil {
+		status["storage"] = M{"ok": false, "detail": "not writable"}
+	} else {
+		_ = os.Remove(probe)
+		status["storage"] = M{"ok": true, "detail": "writable"}
+	}
+	status["email"] = M{"ok": s.cfg.SMTPHost != "" && s.cfg.SMTPUser != "" && s.cfg.SMTPPass != "" || s.cfg.ResendKey != "", "detail": "OTP email"}
+	status["push"] = M{"ok": s.fcm != nil, "detail": "Firebase push"}
+	status["ocr"] = M{"ok": len(s.cfg.GeminiAPIKeys) > 0, "detail": fmt.Sprintf("%d Gemini key(s)", len(s.cfg.GeminiAPIKeys))}
+	writeJSON(w, 200, M{"success": true, "status": status})
 }

@@ -52,7 +52,8 @@ func (s *Server) adminApplicant(w http.ResponseWriter, r *http.Request) {
 	payments, _ := s.many(r.Context(), `SELECT * FROM payments WHERE applicant_id=$1 ORDER BY created_at DESC`, id)
 	loan, _ := s.one(r.Context(), `SELECT * FROM loan_details WHERE applicant_id=$1`, id)
 	unit, _ := s.one(r.Context(), `SELECT * FROM units WHERE allocated_to=$1`, id)
-	writeJSON(w, 200, M{"success": true, "applicant": app, "uploads": uploads, "payments": payments, "loan": loan, "unit": unit})
+	project, _ := s.one(r.Context(), `SELECT bank_name, bank_branch, project_name FROM project_settings LIMIT 1`)
+	writeJSON(w, 200, M{"success": true, "applicant": app, "uploads": uploads, "payments": payments, "loan": loan, "unit": unit, "project": project})
 }
 
 type reviewIn struct {
