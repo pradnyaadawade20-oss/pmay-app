@@ -10,6 +10,7 @@ type Config struct {
 	ResendKey, ResendFrom                            string
 	SMTPHost, SMTPPort, SMTPUser, SMTPPass, SMTPFrom string // email via SMTP (needs a paid Render instance)
 	MSG91Key, MSG91Sender                            string
+	GeminiAPIKey, GeminiModel                        string // OCR via Google Gemini (optional; Tesseract is the fallback)
 	RazorpayKeyID, RazorpaySecret                    string
 	AdminEmail, AdminPassword                        string
 	DevMode                                          bool // DEV_MODE=true -> OTP returned in API response (never use in prod)
@@ -40,6 +41,8 @@ func Load() Config {
 		ResendFrom:             env("RESEND_FROM", "PMAY Registration <noreply@pmay.beellz.com>"),
 		MSG91Key:               os.Getenv("MSG91_AUTH_KEY"),
 		MSG91Sender:            env("MSG91_SENDER_ID", "PMAYOT"),
+		GeminiAPIKey:           os.Getenv("GEMINI_API_KEY"),
+		GeminiModel:            env("GEMINI_MODEL", "gemini-2.5-flash"),
 		RazorpayKeyID:          os.Getenv("RAZORPAY_KEY_ID"),
 		RazorpaySecret:         os.Getenv("RAZORPAY_KEY_SECRET"),
 		AdminEmail:             os.Getenv("ADMIN_EMAIL"),
