@@ -56,3 +56,24 @@ func TestKeyPoolAllExhausted(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestModelFallback(t *testing.T) {
+	var models []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		models = append(models, r.URL.Path)
+		if len(models) == 1 {
+			w.WriteHeader(404)
+			return
+		}
+		w.Write([]byte(okBody))
+	}))
+	defer srv.Close()
+	old := geminiBase
+	geminiBase = srv.URL
+	defer func() { geminiBase = old }()
+	p := NewKeyPool([]string{"k"}, "gemini-old")
+	f, err := p.Extract(context.Background(), "pan_front", "image/png", []byte("x"))
+	if err != nil || f["panNumber"] != "ABCDE1234F" || len(models) != 2 {
+		t.Fatalf("%v %v %v", f, err, models)
+	}
+}

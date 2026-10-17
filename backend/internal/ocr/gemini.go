@@ -17,6 +17,10 @@ import (
 // geminiBase is a variable so tests can point it at a fake server.
 var geminiBase = "https://generativelanguage.googleapis.com/v1beta"
 
+// defaultModels are tried in order when GEMINI_MODEL is empty or the configured model is not available
+// (Google retires models and restricts old ones to existing users, which shows up as 404).
+var defaultModels = []string{"gemini-3.6-flash", "gemini-3.5-flash-lite"}
+
 const jsonShape = `Return ONLY a JSON object with these keys (use "" when a value is not visible or unreadable; never guess):
 {"firstName":"","lastName":"","fatherName":"","spouseName":"","dateOfBirth":"YYYY-MM-DD","aadharNumber":"12 digits, no spaces","panNumber":"","fullAddress":""}
 Write all names and the address in English (Latin letters); transliterate Hindi/Devanagari text.`
@@ -36,7 +40,7 @@ func geminiOnce(ctx context.Context, apiKey, model, kind, mime string, image []b
 		return nil, errors.New("unknown document type")
 	}
 	if model == "" {
-		model = "gemini-2.5-flash"
+		model = defaultModels[0]
 	}
 	body, _ := json.Marshal(map[string]any{
 		"contents": []any{map[string]any{"parts": []any{
@@ -58,6 +62,8 @@ func geminiOnce(ctx context.Context, apiKey, model, kind, mime string, image []b
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != 200 {
 		switch {
+		case resp.StatusCode == 404:
+			return nil, fmt.Errorf("%w: %s", errModel, truncate(string(raw), 200))
 		case resp.StatusCode == 429:
 			return nil, errQuota
 		case resp.StatusCode == 401 || resp.StatusCode == 403 || (resp.StatusCode == 400 && bytes.Contains(raw, []byte("API_KEY_INVALID"))):

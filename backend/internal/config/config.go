@@ -44,7 +44,7 @@ func Load() Config {
 		MSG91Key:               os.Getenv("MSG91_AUTH_KEY"),
 		MSG91Sender:            env("MSG91_SENDER_ID", "PMAYOT"),
 		GeminiAPIKeys:          geminiKeys(),
-		GeminiModel:            env("GEMINI_MODEL", "gemini-2.5-flash"),
+		GeminiModel:            os.Getenv("GEMINI_MODEL"),
 		RazorpayKeyID:          os.Getenv("RAZORPAY_KEY_ID"),
 		RazorpaySecret:         os.Getenv("RAZORPAY_KEY_SECRET"),
 		AdminEmail:             os.Getenv("ADMIN_EMAIL"),

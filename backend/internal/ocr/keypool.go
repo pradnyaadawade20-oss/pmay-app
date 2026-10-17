@@ -12,6 +12,7 @@ import (
 var (
 	errQuota  = errors.New("gemini: quota or rate limit reached")
 	errBadKey = errors.New("gemini: key rejected")
+	errModel  = errors.New("gemini: model not available")
 
 	// ErrAllKeysExhausted is returned when every configured key is out of quota or invalid.
 	ErrAllKeysExhausted = errors.New("all Gemini API keys are exhausted")
@@ -43,7 +44,7 @@ func (p *KeyPool) Extract(ctx context.Context, kind, mime string, image []byte) 
 		if p.blocked(i) {
 			continue
 		}
-		fields, err := geminiOnce(ctx, key, p.model, kind, mime, image)
+		fields, err := p.tryModels(ctx, key, kind, mime, image)
 		switch {
 		case err == nil:
 			return fields, nil
@@ -70,4 +71,21 @@ func (p *KeyPool) block(i int, d time.Duration) {
 	p.mu.Lock()
 	p.until[i] = time.Now().Add(d)
 	p.mu.Unlock()
+}
+
+// tryModels uses the configured model first, then the built-in fallbacks if Google says the model is unavailable.
+func (p *KeyPool) tryModels(ctx context.Context, key, kind, mime string, image []byte) (map[string]string, error) {
+	models := defaultModels
+	if p.model != "" {
+		models = append([]string{p.model}, defaultModels...)
+	}
+	var err error
+	for _, m := range models {
+		var f map[string]string
+		if f, err = geminiOnce(ctx, key, m, kind, mime, image); !errors.Is(err, errModel) {
+			return f, err
+		}
+		log.Printf("ocr: gemini model %q is not available, trying the next model", m)
+	}
+	return nil, err
 }
