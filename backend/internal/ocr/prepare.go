@@ -11,7 +11,7 @@ import (
 const maxSide = 1400 // phone photos are 3000-4000px; OCR on that is slow and not more accurate for ID cards
 
 // Prepare converts the image to grayscale and shrinks it so its longest side is at most maxSide,
-// writing a PNG to dst. This makes tesseract several times faster on small servers.
+// writing a PNG to dst. This keeps uploads to Gemini small and fast.
 func Prepare(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

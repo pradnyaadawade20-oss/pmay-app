@@ -58,7 +58,7 @@ services:
         sync: false
       - key: MSG91_AUTH_KEY
         sync: false
-      - key: GEMINI_API_KEY        # OCR via Google Gemini (https://aistudio.google.com/apikey); empty = Tesseract only
+      - key: GEMINI_API_KEY        # OCR via Google Gemini (https://aistudio.google.com/apikey); without it OCR returns 503 and users type details
         sync: false
       - key: RAZORPAY_KEY_ID
         sync: false

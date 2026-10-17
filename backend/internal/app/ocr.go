@@ -14,9 +14,6 @@ import (
 	"pmay-backend/internal/ocr"
 )
 
-// At most 2 tesseract runs at once (CPU heavy; this endpoint is public).
-var ocrSlots = make(chan struct{}, 2)
-
 // Per-IP limit: Gemini calls cost money and the endpoint needs no login.
 const ocrPerHour = 20
 
@@ -52,12 +49,10 @@ func clientIP(r *http.Request) string {
 }
 
 // POST /api/ocr/extract  multipart: type=aadhar_front|aadhar_back|pan_front, file=<jpg|png>
-// Reads the card with Google Gemini (GEMINI_API_KEY) and falls back to Tesseract if Gemini is
-// not configured or fails. Returns the form fields it could read; the app pre-fills the form.
+// Reads the card with Google Gemini (GEMINI_API_KEY) and returns the form fields it found.
 func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
-	useGemini := s.cfg.GeminiAPIKey != ""
-	if !useGemini && !ocr.Available() {
-		fail(w, 503, "OCR is not available on this server")
+	if s.cfg.GeminiAPIKey == "" {
+		fail(w, 503, "OCR is not configured on this server")
 		return
 	}
 	if !ocrAllowed(clientIP(r)) {
@@ -110,34 +105,16 @@ func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
 	if ocr.Prepare(path, small) == nil { // grayscale + shrink; falls back to the original if it can't be decoded
 		path, mime = small, "image/png"
 	}
-
-	if useGemini {
-		img, err := os.ReadFile(path)
-		if err == nil {
-			fields, gerr := ocr.Gemini(r.Context(), s.cfg.GeminiAPIKey, s.cfg.GeminiModel, kind, mime, img)
-			if gerr == nil {
-				writeJSON(w, 200, M{"success": true, "engine": "gemini", "fields": fields})
-				return
-			}
-			log.Println("ocr: gemini failed, falling back to tesseract:", gerr)
-		}
-		if !ocr.Available() {
-			fail(w, 502, "Could not read the image")
-			return
-		}
-	}
-
-	select {
-	case ocrSlots <- struct{}{}:
-		defer func() { <-ocrSlots }()
-	default:
-		fail(w, 429, "Busy, please try again in a moment")
+	img, err := os.ReadFile(path)
+	if err != nil {
+		fail(w, 500, "Server error")
 		return
 	}
-	text, err := ocr.Text(r.Context(), path)
+	fields, err := ocr.Gemini(r.Context(), s.cfg.GeminiAPIKey, s.cfg.GeminiModel, kind, mime, img)
 	if err != nil {
+		log.Println("ocr: gemini failed:", err)
 		fail(w, 502, "Could not read the image")
 		return
 	}
-	writeJSON(w, 200, M{"success": true, "engine": "tesseract", "fields": ocr.Parse(kind, text)})
+	writeJSON(w, 200, M{"success": true, "fields": fields})
 }

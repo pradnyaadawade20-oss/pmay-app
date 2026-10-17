@@ -10,7 +10,7 @@ type Config struct {
 	ResendKey, ResendFrom                            string
 	SMTPHost, SMTPPort, SMTPUser, SMTPPass, SMTPFrom string // email via SMTP (needs a paid Render instance)
 	MSG91Key, MSG91Sender                            string
-	GeminiAPIKey, GeminiModel                        string // OCR via Google Gemini (optional; Tesseract is the fallback)
+	GeminiAPIKey, GeminiModel                        string // OCR via Google Gemini (optional; without it OCR is off)
 	RazorpayKeyID, RazorpaySecret                    string
 	AdminEmail, AdminPassword                        string
 	DevMode                                          bool // DEV_MODE=true -> OTP returned in API response (never use in prod)
