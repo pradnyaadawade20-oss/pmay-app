@@ -52,6 +52,39 @@ class _ApplyScreenState extends State<ApplyScreen> {
 
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
 
+  /// Reads the chosen Aadhaar / PAN image on the server (OCR) and pre-fills EMPTY form fields.
+  /// Never overwrites what the user typed; if OCR fails the user just types the details.
+  Future<void> _autoFill(String key, String path) async {
+    if (!const {'aadhar_front', 'aadhar_back', 'pan_front'}.contains(key)) return;
+    final sm = ScaffoldMessenger.of(context);
+    sm.hideCurrentSnackBar();
+    sm.showSnackBar(const SnackBar(duration: Duration(minutes: 2), content: Text('Reading your document...')));
+    try {
+      final r = await context.read<AppState>().api.postMultipart('/ocr/extract', fields: {'type': key}, files: {'file': path});
+      final f = Map<String, dynamic>.from(r['fields'] ?? {});
+      var filled = 0;
+      if (mounted) {
+        setState(() {
+          f.forEach((k, v) {
+            final c = _c[k];
+            if (c != null && c.text.trim().isEmpty && '$v'.trim().isNotEmpty) {
+              c.text = '$v';
+              filled++;
+            }
+          });
+        });
+      }
+      sm.hideCurrentSnackBar();
+      sm.showSnackBar(SnackBar(
+          content: Text(filled > 0
+              ? '$filled field(s) filled from your document. Please check them.'
+              : 'Could not read details from this image. Please type them.')));
+    } catch (_) {
+      sm.hideCurrentSnackBar();
+      sm.showSnackBar(const SnackBar(content: Text('Could not read this document automatically. Please type the details.')));
+    }
+  }
+
   // ---------- UI helpers ----------
   Widget _section(String t) => Padding(
         padding: const EdgeInsets.only(top: 22, bottom: 14),
@@ -155,7 +188,10 @@ class _ApplyScreenState extends State<ApplyScreen> {
         borderRadius: BorderRadius.circular(8),
         onTap: () async {
           final p = await pickDoc();
-          if (p != null) setState(() => _files[key] = p);
+          if (p != null) {
+            setState(() => _files[key] = p);
+            _autoFill(key, p);
+          }
         },
         child: Container(
           width: double.infinity,
