@@ -5,7 +5,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'apply.dart';
-import 'login.dart';
+import 'auth.dart';
 
 // Leader card ka text yahan badlo. Quote sirf wahi daalo jo verified ho.
 const _leaderName = 'Shri Narendra Modi';
@@ -26,31 +26,11 @@ class HomeScreen extends StatelessWidget {
   void _openApplication(BuildContext c) {
     final s = c.read<AppState>();
     if (!s.loggedIn) {
-      showDialog(
-        context: c,
-        builder: (d) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          icon: const Icon(Icons.lock_outline_rounded, color: kOrange, size: 36),
-          title: const Text('Login Required'),
-          content: const Text('Please login first to apply.', textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: kOrange),
-              onPressed: () {
-                Navigator.pop(d);
-                Navigator.push(c, MaterialPageRoute(builder: (_) => const LoginScreen()));
-              },
-              child: const Text('Login'),
-            ),
-          ],
-        ),
-      );
+      Navigator.push(c, MaterialPageRoute(builder: (_) => const AuthScreen()));
       return;
     }
     if (s.applicant == null) {
-      toast(c, 'No application found for this account', error: true);
+      Navigator.push(c, MaterialPageRoute(builder: (_) => const ApplyScreen()));
       return;
     }
     onTab(1); // Tracking tab
@@ -220,7 +200,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
     return ListView(padding: const EdgeInsets.all(16), children: [
-      _hero(context, s.loggedIn),
+      _hero(context, s.loggedIn && s.applicant != null),
       const SizedBox(height: 12),
       _leaders(),
       const SizedBox(height: 12),

@@ -35,6 +35,8 @@ class _ApplyScreenState extends State<ApplyScreen> {
   @override
   void initState() {
     super.initState();
+    final st = context.read<AppState>();
+    if (st.loggedIn && st.email != null) _c['email']!.text = st.email!;
     context.read<AppState>().api.get('/public/admins').then((r) {
       if (mounted) setState(() => _admins = List<Map<String, dynamic>>.from(r['admins'] ?? []));
     }).catchError((_) {});
@@ -49,37 +51,6 @@ class _ApplyScreenState extends State<ApplyScreen> {
   }
 
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
-
-  /// Reads the chosen Aadhaar / PAN image on the server (OCR) and pre-fills EMPTY form fields.
-  /// Never overwrites what the user typed; silently does nothing if OCR is unavailable.
-  Future<void> _autoFill(String key, String path) async {
-    if (!const {'aadhar_front', 'aadhar_back', 'pan_front'}.contains(key)) return;
-    final sm = ScaffoldMessenger.of(context);
-    sm.hideCurrentSnackBar();
-    sm.showSnackBar(const SnackBar(duration: Duration(minutes: 2), content: Text('Reading your document...')));
-    try {
-      final r = await context.read<AppState>().api.postMultipart('/ocr/extract', fields: {'type': key}, files: {'file': path});
-      final f = Map<String, dynamic>.from(r['fields'] ?? {});
-      var filled = 0;
-      setState(() {
-        f.forEach((k, v) {
-          final c = _c[k];
-          if (c != null && c.text.trim().isEmpty && '$v'.trim().isNotEmpty) {
-            c.text = '$v';
-            filled++;
-          }
-        });
-      });
-      sm.hideCurrentSnackBar();
-      sm.showSnackBar(SnackBar(
-          content: Text(filled > 0
-              ? '$filled field(s) filled from your document. Please check them.'
-              : 'Could not read details from this image. Please type them.')));
-    } catch (_) {
-      sm.hideCurrentSnackBar();
-      sm.showSnackBar(const SnackBar(content: Text('Could not read this document automatically. Please type the details.')));
-    }
-  }
 
   // ---------- UI helpers ----------
   Widget _section(String t) => Padding(
@@ -123,6 +94,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
           int maxLines = 1,
           int? maxLen,
           Widget? suffix,
+          bool readOnly = false,
           String? helper}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 14),
@@ -132,6 +104,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
               controller: _c[key],
               keyboardType: type,
               obscureText: obscure,
+              readOnly: readOnly,
               maxLines: obscure ? 1 : maxLines,
               maxLength: maxLen,
               decoration: _dec(hint, suffix: suffix).copyWith(counterText: ''),
@@ -182,10 +155,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
         borderRadius: BorderRadius.circular(8),
         onTap: () async {
           final p = await pickDoc();
-          if (p != null) {
-            setState(() => _files[key] = p);
-            _autoFill(key, p);
-          }
+          if (p != null) setState(() => _files[key] = p);
         },
         child: Container(
           width: double.infinity,
@@ -366,6 +336,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
               _section('Contact Details'),
               _field('email', 'Email',
                   type: TextInputType.emailAddress,
+                  readOnly: context.read<AppState>().loggedIn,
                   validator: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v ?? '') ? null : 'Enter valid email'),
               _field('phone', 'Mobile Number',
                   hint: '10 digit number',
@@ -385,14 +356,16 @@ class _ApplyScreenState extends State<ApplyScreen> {
                   maxLen: 10,
                   validator: (v) => RegExp(r'^[A-Za-z]{5}[0-9]{4}[A-Za-z]$').hasMatch(v ?? '') ? null : 'Invalid PAN (ABCDE1234F)'),
 
-              _section('Account Security'),
-              _field('password', 'Password',
-                  obscure: _hide,
-                  helper: 'Minimum 8 characters',
-                  suffix: IconButton(
-                      icon: Icon(_hide ? Icons.visibility : Icons.visibility_off, size: 20),
-                      onPressed: () => setState(() => _hide = !_hide)),
-                  validator: (v) => (v ?? '').length >= 8 ? null : 'Minimum 8 characters'),
+              if (!context.read<AppState>().loggedIn) ...[
+                _section('Account Security'),
+                _field('password', 'Password',
+                    obscure: _hide,
+                    helper: 'Minimum 8 characters',
+                    suffix: IconButton(
+                        icon: Icon(_hide ? Icons.visibility : Icons.visibility_off, size: 20),
+                        onPressed: () => setState(() => _hide = !_hide)),
+                    validator: (v) => (v ?? '').length >= 8 ? null : 'Minimum 8 characters'),
+              ],
 
               const SizedBox(height: 6),
               SizedBox(

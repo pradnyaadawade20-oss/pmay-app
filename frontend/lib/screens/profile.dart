@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'apply.dart';
 import 'dashboard.dart';
+import 'auth.dart';
 import 'login.dart';
 import 'notifications.dart';
 import 'profile_pages.dart';
@@ -35,17 +36,17 @@ class ProfileScreen extends StatelessWidget {
         Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text((a?['email'] ?? '').toString(), style: const TextStyle(color: Colors.black54)),
+          Text((a?['email'] ?? s.email ?? '').toString(), style: const TextStyle(color: Colors.black54)),
         ])),
       ]),
       if (!s.loggedIn) ...[
         const SizedBox(height: 16),
-        orangeButton('Login', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()))),
+        orangeButton('Login', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()))),
         const SizedBox(height: 8),
         OutlinedButton(
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ApplyScreen())),
-            child: const Text('Apply for PMAY / Sign Up')),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen(startOnSignUp: true))),
+            child: const Text('Sign Up')),
       ],
       const SizedBox(height: 16),
       Card(
@@ -56,7 +57,7 @@ class ProfileScreen extends StatelessWidget {
               return;
             }
             if (a == null) {
-              toast(context, 'No application found', error: true);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ApplyScreen()));
               return;
             }
             Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));

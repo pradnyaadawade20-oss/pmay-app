@@ -135,6 +135,17 @@ class AppState extends ChangeNotifier {
     registerPush();
   }
 
+  String? get email => me?['email'] as String?;
+
+  /// Email + password only: creates the account and logs the user in (application is filled later).
+  Future<void> signUp(String email, String password) async {
+    final r = await api.postJson('/auth/signup', {'email': email, 'password': password});
+    await api.saveToken(r['token'] as String);
+    roles = [];
+    await refresh();
+    registerPush();
+  }
+
   Future<void> registerWith(Map<String, String> fields, Map<String, String> files) async {
     final r = await api.postMultipart('/auth/register', fields: fields, files: files);
     await api.saveToken(r['token'] as String);

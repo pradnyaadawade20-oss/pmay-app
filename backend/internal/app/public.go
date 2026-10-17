@@ -29,6 +29,16 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	aadhar, pan := reDigits.ReplaceAllString(f("aadharNumber"), ""), strings.ToUpper(f("panNumber"))
 	pw := r.FormValue("password")
 
+	// Logged-in user (signed up with email+password earlier) completing their application: reuse that account.
+	var existingUID string
+	var existingRoles []string
+	if tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); tok != "" {
+		if c, ok := s.parseJWT(tok); ok {
+			existingUID, existingRoles = c.Sub, c.Roles
+			email = normEmail(c.Email)
+		}
+	}
+
 	switch {
 	case f("firstName") == "" || f("lastName") == "":
 		fail(w, 400, "First and last name are required")
@@ -45,7 +55,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	case !rePAN.MatchString(pan):
 		fail(w, 400, "Invalid PAN format (e.g. ABCDE1234F)")
 		return
-	case len(pw) < 8:
+	case existingUID == "" && len(pw) < 8:
 		fail(w, 400, "Password must be at least 8 characters")
 		return
 	case f("fullAddress") == "":
@@ -81,7 +91,9 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	var userID, appID, uniqueID string
-	if err := tx.QueryRowContext(r.Context(), `INSERT INTO users(email,password_hash) VALUES ($1,$2) RETURNING id`, email, hashPassword(pw)).Scan(&userID); err != nil {
+	if existingUID != "" {
+		userID = existingUID
+	} else if err := tx.QueryRowContext(r.Context(), `INSERT INTO users(email,password_hash) VALUES ($1,$2) RETURNING id`, email, hashPassword(pw)).Scan(&userID); err != nil {
 		if m := isUniqueErr(err); m != "" {
 			fail(w, 409, m)
 			return
@@ -132,8 +144,40 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(6 * time.Second)
 		s.notify(context.Background(), appID, "registered", "Registration received", "Your application is submitted. Verify your email or phone to continue.")
 	}()
-	tok := s.signJWT(Claims{Sub: userID, Email: email, Roles: []string{}})
+	if existingRoles == nil {
+		existingRoles = []string{}
+	}
+	tok := s.signJWT(Claims{Sub: userID, Email: email, Roles: existingRoles})
 	writeJSON(w, 201, M{"success": true, "token": tok, "applicantId": appID, "uniqueId": uniqueID})
+}
+
+// POST /api/auth/signup {email,password}  -> creates only the account (no application yet) and logs the user in.
+func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Email, Password string }
+	if !decode(r, &in) {
+		fail(w, 400, "Invalid body")
+		return
+	}
+	email := normEmail(in.Email)
+	if !reEmail.MatchString(email) {
+		fail(w, 400, "Enter a valid email")
+		return
+	}
+	if len(in.Password) < 8 {
+		fail(w, 400, "Password must be at least 8 characters")
+		return
+	}
+	var userID string
+	if err := s.db.QueryRowContext(r.Context(), `INSERT INTO users(email,password_hash) VALUES ($1,$2) RETURNING id`, email, hashPassword(in.Password)).Scan(&userID); err != nil {
+		if m := isUniqueErr(err); m != "" {
+			fail(w, 409, m)
+			return
+		}
+		fail(w, 500, "Failed to create account")
+		return
+	}
+	tok := s.signJWT(Claims{Sub: userID, Email: email, Roles: []string{}})
+	writeJSON(w, 201, M{"success": true, "message": "Account created successfully", "token": tok})
 }
 
 // POST /api/auth/login {email,password}

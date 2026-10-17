@@ -15,7 +15,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if app == nil {
-		writeJSON(w, 200, M{"success": true, "applicant": nil, "roles": c.Roles})
+		writeJSON(w, 200, M{"success": true, "applicant": nil, "email": c.Email, "roles": c.Roles})
 		return
 	}
 	id := app["id"].(string)
@@ -29,7 +29,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	loan, _ := s.one(ctx, `SELECT * FROM loan_details WHERE applicant_id=$1`, id)
 	stage := app["registration_stage"].(string)
 	writeJSON(w, 200, M{"success": true, "applicant": app, "unit": unit, "project": project, "uploads": uploads,
-		"payments": payments, "loan": loan, "stageNumber": stageNum(stage), "stageLabel": stageNames[stage], "roles": c.Roles})
+		"payments": payments, "loan": loan, "stageNumber": stageNum(stage), "stageLabel": stageNames[stage], "roles": c.Roles, "email": c.Email})
 }
 
 func (s *Server) myApplicant(r *http.Request) (M, bool) {

@@ -9,10 +9,10 @@ func (s *Server) routes() http.Handler {
 
 	// public
 	mux.HandleFunc("POST /api/auth/register", s.register)
+	mux.HandleFunc("POST /api/auth/signup", s.signup)
 	mux.HandleFunc("POST /api/auth/login", s.login)
 	mux.HandleFunc("GET /api/public/admins", s.publicAdmins)
 	mux.HandleFunc("POST /api/otp/send", s.sendOTP)
-	mux.HandleFunc("POST /api/ocr/extract", s.ocrExtract)
 	mux.HandleFunc("POST /api/otp/verify", s.verifyOTP)
 
 	// applicant
@@ -33,10 +33,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/stats", s.authed(s.panelStats, anyAdmin...))
 	mux.HandleFunc("GET /api/admin/applicants", s.authed(s.panelApplicants, anyAdmin...))
 	mux.HandleFunc("GET /api/admin/applicants/{id}", s.authed(s.adminApplicant, anyAdmin...))
-	mux.HandleFunc("GET /api/admin/system-status", s.authed(s.systemStatus, anyAdmin...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/validation", s.authed(s.adminValidation, staff...))
 	mux.HandleFunc("POST /api/admin/payments/{id}/review", s.authed(s.adminPaymentReview, financeRole...))
-	mux.HandleFunc("GET /api/admin/units", s.authed(s.panelUnits, anyAdmin...))
+	mux.HandleFunc("GET /api/admin/units", s.authed(s.adminUnits, anyAdmin...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/allot", s.authed(s.adminAllot, allotRole...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/agreement-review", s.authed(s.adminAgreementReview, staff...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/bank-review", s.authed(s.adminBankReview, staff...))
@@ -51,7 +50,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/payments", s.authed(s.panelPayments, financeRole...))
 	mux.HandleFunc("POST /api/admin/payments/{id}/{act}", s.authed(s.panelPayAct, financeRole...))
 	mux.HandleFunc("GET /api/admin/document-settings", s.authed(s.docSettings, anyAdmin...))
-	mux.HandleFunc("POST /api/admin/document-settings/{kind}", s.authed(s.docSettingSave, "super_admin"))
+	mux.HandleFunc("POST /api/admin/document-settings/{kind}", s.authed(s.docSettingSave, staff...))
 	mux.HandleFunc("GET /api/admin/users", s.authed(s.panelUsers, anyAdmin...))
 	mux.HandleFunc("POST /api/admin/users/assign", s.authed(s.userAssign, "super_admin"))
 	mux.HandleFunc("POST /api/admin/users/invite", s.authed(s.userInvite, "super_admin"))
