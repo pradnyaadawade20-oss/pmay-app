@@ -50,7 +50,7 @@ func clientIP(r *http.Request) string {
 }
 
 // POST /api/ocr/extract  multipart: type=aadhar_front|aadhar_back|pan_front, file=<jpg|png>
-// Reads the card with Google Gemini (GEMINI_API_KEY ... GEMINI_API_KEY_5) and returns the form fields it found.
+// Reads the card with Google Gemini (GEMINI_API_KEY ... GEMINI_API_KEY_3) and returns the form fields it found.
 func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
 	if len(s.cfg.GeminiAPIKeys) == 0 {
 		fail(w, 503, "OCR is not configured on this server")
