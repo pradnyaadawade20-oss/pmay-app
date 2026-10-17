@@ -27,10 +27,10 @@ var geminiPrompts = map[string]string{
 	"pan_front":    "This is an Indian PAN card. Extract the PAN number, the holder's name (firstName = first word, lastName = last word), father's name and date of birth. Leave other keys empty.",
 }
 
-// Gemini reads the card image with Google's Gemini vision model and returns validated form fields.
+// geminiOnce reads the card image with Google's Gemini vision model and returns validated form fields.
 // image must be PNG or JPEG bytes. Output is always re-validated, so a wrong or manipulated answer
 // cannot put a malformed Aadhaar/PAN/date into the form.
-func Gemini(ctx context.Context, apiKey, model, kind, mime string, image []byte) (map[string]string, error) {
+func geminiOnce(ctx context.Context, apiKey, model, kind, mime string, image []byte) (map[string]string, error) {
 	prompt, ok := geminiPrompts[kind]
 	if !ok {
 		return nil, errors.New("unknown document type")
@@ -57,6 +57,12 @@ func Gemini(ctx context.Context, apiKey, model, kind, mime string, image []byte)
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != 200 {
+		switch {
+		case resp.StatusCode == 429:
+			return nil, errQuota
+		case resp.StatusCode == 401 || resp.StatusCode == 403 || (resp.StatusCode == 400 && bytes.Contains(raw, []byte("API_KEY_INVALID"))):
+			return nil, errBadKey
+		}
 		return nil, fmt.Errorf("gemini %d: %s", resp.StatusCode, truncate(string(raw), 300))
 	}
 	var out struct {

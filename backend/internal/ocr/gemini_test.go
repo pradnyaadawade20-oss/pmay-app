@@ -33,7 +33,7 @@ func TestGemini(t *testing.T) {
 	geminiBase = srv.URL
 	defer func() { geminiBase = old }()
 
-	f, err := Gemini(context.Background(), "k123", "", "aadhar_front", "image/png", []byte("img"))
+	f, err := geminiOnce(context.Background(), "k123", "", "aadhar_front", "image/png", []byte("img"))
 	if err != nil {
 		t.Fatal(err)
 	}

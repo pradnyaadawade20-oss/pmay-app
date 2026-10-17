@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -10,7 +11,8 @@ type Config struct {
 	ResendKey, ResendFrom                            string
 	SMTPHost, SMTPPort, SMTPUser, SMTPPass, SMTPFrom string // email via SMTP (needs a paid Render instance)
 	MSG91Key, MSG91Sender                            string
-	GeminiAPIKey, GeminiModel                        string // OCR via Google Gemini (optional; without it OCR is off)
+	GeminiModel                                      string   // OCR via Google Gemini
+	GeminiAPIKeys                                    []string // up to 5 keys, tried in order (see geminiKeys)
 	RazorpayKeyID, RazorpaySecret                    string
 	AdminEmail, AdminPassword                        string
 	DevMode                                          bool // DEV_MODE=true -> OTP returned in API response (never use in prod)
@@ -41,7 +43,7 @@ func Load() Config {
 		ResendFrom:             env("RESEND_FROM", "PMAY Registration <noreply@pmay.beellz.com>"),
 		MSG91Key:               os.Getenv("MSG91_AUTH_KEY"),
 		MSG91Sender:            env("MSG91_SENDER_ID", "PMAYOT"),
-		GeminiAPIKey:           os.Getenv("GEMINI_API_KEY"),
+		GeminiAPIKeys:          geminiKeys(),
 		GeminiModel:            env("GEMINI_MODEL", "gemini-2.5-flash"),
 		RazorpayKeyID:          os.Getenv("RAZORPAY_KEY_ID"),
 		RazorpaySecret:         os.Getenv("RAZORPAY_KEY_SECRET"),
@@ -58,4 +60,24 @@ func Load() Config {
 // SMTPEnabled is true when SMTP_HOST, SMTP_USER and SMTP_PASS are all set.
 func (c Config) SMTPEnabled() bool {
 	return c.SMTPHost != "" && c.SMTPUser != "" && c.SMTPPass != ""
+}
+
+// geminiKeys collects the Gemini API keys in priority order: GEMINI_API_KEY, GEMINI_API_KEY_2 .. _5,
+// then any in the comma-separated GEMINI_API_KEYS. Duplicates and blanks are dropped; at most 5 are used.
+func geminiKeys() []string {
+	var raw []string
+	raw = append(raw, os.Getenv("GEMINI_API_KEY"))
+	for i := 2; i <= 5; i++ {
+		raw = append(raw, os.Getenv("GEMINI_API_KEY_"+strconv.Itoa(i)))
+	}
+	raw = append(raw, strings.Split(os.Getenv("GEMINI_API_KEYS"), ",")...)
+	seen := map[string]bool{}
+	var out []string
+	for _, k := range raw {
+		if k = strings.TrimSpace(k); k != "" && !seen[k] && len(out) < 5 {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	return out
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -49,9 +50,9 @@ func clientIP(r *http.Request) string {
 }
 
 // POST /api/ocr/extract  multipart: type=aadhar_front|aadhar_back|pan_front, file=<jpg|png>
-// Reads the card with Google Gemini (GEMINI_API_KEY) and returns the form fields it found.
+// Reads the card with Google Gemini (GEMINI_API_KEY ... GEMINI_API_KEY_5) and returns the form fields it found.
 func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.GeminiAPIKey == "" {
+	if len(s.cfg.GeminiAPIKeys) == 0 {
 		fail(w, 503, "OCR is not configured on this server")
 		return
 	}
@@ -110,11 +111,26 @@ func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "Server error")
 		return
 	}
-	fields, err := ocr.Gemini(r.Context(), s.cfg.GeminiAPIKey, s.cfg.GeminiModel, kind, mime, img)
+	fields, err := s.geminiPool().Extract(r.Context(), kind, mime, img)
 	if err != nil {
 		log.Println("ocr: gemini failed:", err)
+		if errors.Is(err, ocr.ErrAllKeysExhausted) {
+			fail(w, 503, "Document reading is busy right now. Please type the details.")
+			return
+		}
 		fail(w, 502, "Could not read the image")
 		return
 	}
 	writeJSON(w, 200, M{"success": true, "fields": fields})
+}
+
+var (
+	poolOnce sync.Once
+	pool     *ocr.KeyPool
+)
+
+// geminiPool is shared by all requests so a key's cooldown is remembered between scans.
+func (s *Server) geminiPool() *ocr.KeyPool {
+	poolOnce.Do(func() { pool = ocr.NewKeyPool(s.cfg.GeminiAPIKeys, s.cfg.GeminiModel) })
+	return pool
 }
