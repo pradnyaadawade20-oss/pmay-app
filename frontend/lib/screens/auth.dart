@@ -85,38 +85,38 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const top = Color(0xFFF4F9FD); // matches the header image's top edge
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: const Color(0xFF0F3D8F),
         elevation: 0,
         leading: const BackButton(),
         title: const Text('Home', style: TextStyle(fontSize: 16)),
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+      body: SingleChildScrollView(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(height: MediaQuery.of(context).padding.top + kToolbarHeight, color: top),
+          Image.asset('assets/images/auth_header.png', width: double.infinity, fit: BoxFit.fitWidth),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
             child: Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black12),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFD5E3F7)),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF1649A8).withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8)),
+                ],
               ),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                const Icon(Icons.apartment_rounded, size: 52, color: kBlue),
-                const SizedBox(height: 12),
-                const Text('Krutarth',
-                    textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Text('Access the PMAY registration portal',
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.black54)),
-                const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(color: const Color(0xFFE3E8EF), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: const Color(0xFFE3ECF8), borderRadius: BorderRadius.circular(10)),
                   child: Row(children: [
                     _tab('Login', !_signUp, () => setState(() => _signUp = false)),
                     _tab('Sign Up', _signUp, () => setState(() => _signUp = true)),
@@ -148,7 +148,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                         backgroundColor: kBlue,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     onPressed: _busy ? null : _submit,
                     child: _busy
                         ? const SizedBox(
@@ -160,7 +160,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ]),
             ),
           ),
-        ),
+        ]),
       ),
     );
   }

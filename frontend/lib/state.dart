@@ -110,7 +110,6 @@ class AppState extends ChangeNotifier {
     await api.loadToken();
     await PushService.init(
       onForeground: (title, body) {
-        showPushBanner(title, body);
         refresh().catchError((_) {}); // stage may have changed
       },
       onOpened: () => goToTab(1), // tapped a push -> Tracking tab

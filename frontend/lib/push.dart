@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api.dart' show kMock;
 
 /// Lets us show an in-app banner when a push arrives while the app is open.
@@ -30,6 +31,27 @@ Future<void> _bgHandler(RemoteMessage m) async {}
 class PushService {
   static bool _ready = false;
 
+  // Android shows no system notification while the app is open, so we show one ourselves.
+  static final _local = FlutterLocalNotificationsPlugin();
+  static const _channel = AndroidNotificationChannel('pmay_updates', 'PMAY updates',
+      description: 'Application and account updates', importance: Importance.high);
+
+  static Future<void> _showLocal(String? title, String? body) async {
+    if (title == null && body == null) return;
+    try {
+      await _local.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000 % 1000000,
+        title,
+        body,
+        NotificationDetails(
+            android: AndroidNotificationDetails(_channel.id, _channel.name,
+                channelDescription: _channel.description, importance: Importance.high, priority: Priority.high)),
+      );
+    } catch (e) {
+      debugPrint('Local notification error: $e');
+    }
+  }
+
   static Future<void> init({
     required void Function(String? title, String? body) onForeground,
     required VoidCallback onOpened,
@@ -45,7 +67,21 @@ class PushService {
     _ready = true;
     final fm = FirebaseMessaging.instance;
     FirebaseMessaging.onBackgroundMessage(_bgHandler);
-    FirebaseMessaging.onMessage.listen((m) => onForeground(m.notification?.title, m.notification?.body));
+    try {
+      await _local.initialize(
+        const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+        onDidReceiveNotificationResponse: (_) => onOpened(),
+      );
+      await _local
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_channel);
+    } catch (e) {
+      debugPrint('Local notifications init error: $e');
+    }
+    FirebaseMessaging.onMessage.listen((m) {
+      onForeground(m.notification?.title, m.notification?.body);
+      _showLocal(m.notification?.title, m.notification?.body);
+    });
     FirebaseMessaging.onMessageOpenedApp.listen((_) => onOpened());
     fm.onTokenRefresh.listen(onTokenRefresh);
     if (await fm.getInitialMessage() != null) onOpened(); // app launched by tapping a push
