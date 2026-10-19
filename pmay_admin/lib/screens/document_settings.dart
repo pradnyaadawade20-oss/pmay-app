@@ -87,8 +87,8 @@ class _DocumentSettingsPageState extends State<DocumentSettingsPage> {
 
   Widget _chip(String t) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(20), border: Border.all(color: kLine)),
-        child: Text(t.startsWith('.') ? t : '.$t', style: const TextStyle(fontSize: 12, color: kInk)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: kLine)),
+        child: Text(t.startsWith('.') ? t : '.$t', style: const TextStyle(fontSize: 13, color: kInk)),
       );
 
   Widget _intro() => const Panel(
@@ -109,37 +109,47 @@ class _DocumentSettingsPageState extends State<DocumentSettingsPage> {
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: math.max(c.maxWidth, 840)),
               child: DataTable(
-                dataRowMinHeight: 68,
-                dataRowMaxHeight: 68,
+                dataRowMinHeight: 84,
+                dataRowMaxHeight: 84,
                 horizontalMargin: 22,
-                columnSpacing: 32,
+                columnSpacing: 48,
+                headingRowHeight: 60,
+                headingTextStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: kMuted),
+                headingRowColor: const WidgetStatePropertyAll(Colors.white),
                 columns: const [
-                  DataColumn(label: Text('DOCUMENT TYPE')),
-                  DataColumn(label: Text('MAX SIZE (MB)')),
-                  DataColumn(label: Text('ALLOWED EXTENSIONS')),
-                  DataColumn(label: Text('AI VALIDATION')),
-                  DataColumn(label: Text('ACTIONS')),
+                  DataColumn(label: Text('Document Type')),
+                  DataColumn(label: Text('Max Size (MB)')),
+                  DataColumn(label: Text('Allowed Extensions')),
+                  DataColumn(label: Text('AI Validation')),
+                  DataColumn(label: Text('Actions')),
                 ],
                 rows: [
                   for (final r in _rows)
                     DataRow(cells: [
-                      DataCell(Text(_label(r), style: const TextStyle(fontWeight: FontWeight.w700, color: kInk))),
+                      DataCell(Text(_label(r), style: const TextStyle(fontWeight: FontWeight.w600, color: kInk, fontSize: 15.5))),
                       DataCell(SizedBox(
-                        width: 90,
+                        width: 120,
                         child: TextField(
                           controller: _ctl[_k(r)],
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           onChanged: (_) => setState(() {}),
-                          decoration: const InputDecoration(isDense: true),
+                          decoration: const InputDecoration(isDense: true, filled: true, fillColor: kBg, contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 16)),
                         ),
                       )),
                       DataCell(Wrap(spacing: 6, children: [
                         for (final e in (r['allowed_extensions'] is List ? r['allowed_extensions'] as List : ['jpg', 'jpeg', 'png', 'pdf'])) _chip('$e'),
                       ])),
                       DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                        Switch(value: _ai[_k(r)] == true, onChanged: (v) => setState(() => _ai[_k(r)] = v)),
+                        Switch(
+                            value: _ai[_k(r)] == true,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: kBlue,
+                            inactiveThumbColor: Colors.white,
+                            inactiveTrackColor: const Color(0xFFE4E9F2),
+                            trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+                            onChanged: (v) => setState(() => _ai[_k(r)] = v)),
                         const SizedBox(width: 6),
-                        Text(_ai[_k(r)] == true ? 'Enabled' : 'Disabled', style: const TextStyle(color: kMuted, fontSize: 13)),
+                        Text(_ai[_k(r)] == true ? 'Enabled' : 'Disabled', style: const TextStyle(color: kMuted, fontSize: 15)),
                       ])),
                       DataCell(_dirty(_k(r))
                           ? FilledButton(

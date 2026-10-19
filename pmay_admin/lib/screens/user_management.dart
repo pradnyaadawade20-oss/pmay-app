@@ -19,7 +19,7 @@ Color roleColor(Object? k) => switch ('$k') {
       'admin' => kBlue,
       'finance' => kGreen,
       'allotment_manager' => kOrange,
-      _ => const Color(0xFF6A47D9),
+      _ => const Color(0xFFD98B00), // auditor
     };
 
 String _date(Object? v) {
@@ -94,30 +94,21 @@ class _UserManagementPageState extends State<UserManagementPage> {
     }
   }
 
-  Widget _stat(String label, int v, List<Color> g, double w) => SizedBox(
+  Widget _stat(String label, int v, double w) => SizedBox(
         width: w,
         child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(colors: g, begin: Alignment.topLeft, end: Alignment.bottomRight),
-            boxShadow: [BoxShadow(color: g.last.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 8))],
-          ),
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: kLine), boxShadow: kShadow),
           child: Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text('$v', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: Colors.white, height: 1.1)),
+                Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kMuted, fontSize: 15)),
+                const SizedBox(height: 6),
+                Text('$v', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: kInk, height: 1.1)),
               ]),
             ),
             const SizedBox(width: 8),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-              child: const Icon(Icons.shield_outlined, color: Colors.white, size: 22),
-            ),
+            const Icon(Icons.shield_outlined, color: kMuted, size: 38),
           ]),
         ),
       );
@@ -127,7 +118,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         final w = (c.maxWidth - 16 * (cols - 1)) / cols;
         return Wrap(spacing: 16, runSpacing: 16, children: [
           for (final r in roleOptions)
-            _stat(r.$2, _users.where((u) => u['role'] == r.$1).length, [roleColor(r.$1).withValues(alpha: 0.75), roleColor(r.$1)], w),
+            _stat(r.$2, _users.where((u) => u['role'] == r.$1).length, w),
         ]);
       });
 
@@ -148,38 +139,37 @@ class _UserManagementPageState extends State<UserManagementPage> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minWidth: math.max(c.maxWidth, 820)),
                 child: DataTable(
-                  dataRowMinHeight: 64,
-                  dataRowMaxHeight: 64,
+                  dataRowMinHeight: 82,
+                  dataRowMaxHeight: 82,
                   horizontalMargin: 24,
                   columnSpacing: 28,
+                  headingRowHeight: 60,
+                  headingTextStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: kMuted),
+                  headingRowColor: const WidgetStatePropertyAll(Colors.white),
                   columns: const [
-                    DataColumn(label: Text('DISPLAY NAME')),
-                    DataColumn(label: Text('EMAIL')),
-                    DataColumn(label: Text('USER ID')),
-                    DataColumn(label: Text('ROLE')),
-                    DataColumn(label: Text('ASSIGNED ON')),
-                    DataColumn(label: Text('ACTIONS')),
+                    DataColumn(label: Text('Display Name')),
+                    DataColumn(label: Text('Email')),
+                    DataColumn(label: Text('User ID')),
+                    DataColumn(label: Text('Role')),
+                    DataColumn(label: Text('Assigned On')),
+                    DataColumn(label: Text('Actions')),
                   ],
                   rows: [
                     for (final u in _users)
                       DataRow(cells: [
-                        DataCell(Row(children: [
-                          Avatar('${u['display_name'] ?? u['email'] ?? '?'}', size: 34),
-                          const SizedBox(width: 10),
-                          Text('${u['display_name'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w700, color: kInk)),
-                        ])),
+                        DataCell(Text('${u['display_name'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w700, color: kInk, fontSize: 15))),
                         DataCell(Text('${u['email'] ?? '-'}', style: const TextStyle(color: kMuted))),
                         DataCell(Text(_id(u).length > 8 ? '${_id(u).substring(0, 8)}...' : _id(u),
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5, color: kMuted))),
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 15, color: kMuted))),
                         DataCell(Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                           decoration: BoxDecoration(color: roleColor(u['role']), borderRadius: BorderRadius.circular(20)),
-                          child: Text(roleLabel(u['role']), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                          child: Text(roleLabel(u['role']), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
                         )),
-                        DataCell(Text(_date(u['assigned_at'] ?? u['created_at']), style: const TextStyle(color: kInk))),
+                        DataCell(Text(_date(u['assigned_at'] ?? u['created_at']), style: const TextStyle(color: kInk, fontSize: 15))),
                         DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                          IconButton(tooltip: 'Edit name', onPressed: () => _edit(u), icon: const Icon(Icons.edit_outlined, size: 19, color: kInk)),
-                          IconButton(tooltip: 'Delete', onPressed: () => _delete(u), icon: const Icon(Icons.delete_outline_rounded, size: 19, color: kRed)),
+                          IconButton(tooltip: 'Edit name', onPressed: () => _edit(u), icon: const Icon(Icons.edit_outlined, size: 20, color: kInk)),
+                          IconButton(tooltip: 'Delete', onPressed: () => _delete(u), icon: const Icon(Icons.delete_outline_rounded, size: 20, color: kRed)),
                         ])),
                       ]),
                   ],

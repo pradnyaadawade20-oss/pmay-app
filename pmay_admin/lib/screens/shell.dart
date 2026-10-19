@@ -3,7 +3,7 @@ import '../api.dart';
 import '../common.dart';
 import 'applicants.dart';
 import 'dashboard.dart';
-import 'payments.dart';
+import 'payment_management.dart';
 
 class AdminShell extends StatefulWidget {
   final VoidCallback onLogout;
@@ -38,7 +38,7 @@ class _AdminShellState extends State<AdminShell> {
     return switch (_i) {
       0 => DashboardPage(onOpen: _openSub),
       1 => const ApplicantsPage(),
-      _ => const PaymentsPage(),
+      _ => const PaymentManagementPage(),
     };
   }
 

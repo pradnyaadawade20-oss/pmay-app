@@ -33,3 +33,11 @@ void downloadText(String name, String text, {String mime = 'text/csv;charset=utf
   a.download = name;
   a.click();
 }
+/// Saves bytes as a file download (used for CSV export).
+void downloadBytes(String name, Uint8List b, String mime) {
+  final blob = web.Blob([b.toJS].toJS, web.BlobPropertyBag(type: mime));
+  final a = web.document.createElement('a') as web.HTMLAnchorElement;
+  a.href = web.URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}

@@ -32,6 +32,7 @@ class Ep {
   static const eligibleApplicants = '/admin/units/eligible-applicants'; // GET -> {applicants:[{id,unique_id,first_name,last_name}]}
   static String allot(String unitId) => '/admin/units/$unitId/allot'; // POST {applicant_id}
   static String payments(String status) => '/admin/payments?status=$status';
+  static String payReceipt(String id) => '/admin/payments/$id/receipt'; // file bytes (image / PDF) of the uploaded receipt
   static String payAct(String id, String act) => '/admin/payments/$id/$act'; // confirm | reject
 }
 

@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state.dart';
-import 'login.dart';
 
 const _navy = Color(0xFF0B3C9A);
 const _orange = Color(0xFFF57C20);
@@ -56,13 +55,6 @@ class WelcomeScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _getStarted(context),
                     ),
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Text('Already have an account?'),
-                      TextButton(
-                          onPressed: () =>
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
-                          child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ]),
                     const SizedBox(height: 4),
                     _features(),
                     const Spacer(),

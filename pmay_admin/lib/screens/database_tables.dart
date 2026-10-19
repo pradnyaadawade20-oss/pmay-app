@@ -169,7 +169,7 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: on ? Colors.white54 : kLine),
         ),
-        child: Text(t, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: on ? Colors.white : kInk)),
+        child: Text(t, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: on ? Colors.white : kInk)),
       );
 
   Widget _item(Map t, {bool auth = false}) {
@@ -183,11 +183,11 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
           borderRadius: BorderRadius.circular(8),
           onTap: () => _pick(_tName(t)),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(children: [
               Icon(auth ? Icons.people_alt_outlined : Icons.grid_on_rounded, size: 17, color: on ? Colors.white : kInk),
               const SizedBox(width: 10),
-              Expanded(child: Text(_tLabel(t), style: TextStyle(fontSize: 13.5, color: on ? Colors.white : kInk, fontWeight: on ? FontWeight.w600 : FontWeight.w400))),
+              Expanded(child: Text(_tLabel(t), style: TextStyle(fontSize: 15, color: on ? Colors.white : kInk, fontWeight: on ? FontWeight.w600 : FontWeight.w400))),
               _badge(auth ? 'Auth' : '${t['count'] ?? 0}', on),
             ]),
           ),
@@ -204,7 +204,7 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(6, 0, 6, 8),
-          child: Text('TABLES', style: TextStyle(fontSize: 12, color: kMuted, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+          child: Text('TABLES', style: TextStyle(fontSize: 14, color: kMuted, fontWeight: FontWeight.w500, letterSpacing: 0.4)),
         ),
         for (final t in auth) ...[_item(t, auth: true), const Divider(height: 18, color: kLine)],
         for (final t in rest) _item(t),
@@ -240,10 +240,13 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
               _sel.clear();
               if (v == true) _sel.addAll(ids);
             }),
-            dataRowMinHeight: 60,
-            dataRowMaxHeight: 60,
+            dataRowMinHeight: 72,
+            dataRowMaxHeight: 72,
             horizontalMargin: 12,
             columnSpacing: 26,
+            headingRowHeight: 64,
+            headingTextStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: kMuted),
+            headingRowColor: const WidgetStatePropertyAll(Colors.white),
             columns: [
               for (final c in _cols) DataColumn(label: Text(_title(c))),
               const DataColumn(label: Text('Actions')),
@@ -257,7 +260,7 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
                     for (final c in _cols)
                       DataCell(ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 240),
-                        child: Text(_cell(_rows[i][c]), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kInk, fontSize: 13)),
+                        child: Text(_cell(_rows[i][c]), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kInk, fontSize: 14.5)),
                       )),
                     DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(tooltip: 'View', onPressed: () => _view(_rows[i]), icon: const Icon(Icons.visibility_outlined, size: 18, color: kInk)),
@@ -280,7 +283,7 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
             const Icon(Icons.grid_on_rounded, size: 20, color: kInk),
             const SizedBox(width: 10),
             Expanded(
-              child: Text('$_curLabel (${_rows.length} records)', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: kInk)),
+              child: Text('$_curLabel (${_rows.length} records)', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: kInk)),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded, size: 18), label: const Text('Refresh')),

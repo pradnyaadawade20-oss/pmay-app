@@ -159,8 +159,8 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
   Widget _table(List<Map<String, dynamic>> rows) {
     if (rows.isEmpty) {
       return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
-          child: EmptyState(icon: Icons.home_work_outlined, title: 'No units found', sub: 'Try changing your search or filters'));
+          padding: EdgeInsets.symmetric(vertical: 56),
+          child: Center(child: Text('No units found', style: TextStyle(fontSize: 16, color: kMuted))));
     }
     return LayoutBuilder(
       builder: (context, c) => SingleChildScrollView(

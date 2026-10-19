@@ -5,6 +5,8 @@ import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'applicant_detail.dart';
+import 'payment_management.dart' show PaymentManagementPage;
+import 'validation_queue.dart' show ReviewApplicantDialog;
 import 'unit_allotment.dart';
 
 // ---------------------------------------------------------------- helpers
@@ -31,7 +33,7 @@ String stageLabel(Object? k) => stageOptions.firstWhere((e) => e.$1 == '$k', orE
 
 Color stageColor(Object? k) {
   final n = stageNo(k);
-  return n == 10 ? kGreen : (n <= 3 ? kOrange : kBlue);
+  return n <= 2 ? kBlue : kGreen;
 }
 
 const _mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -152,30 +154,20 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
     toast(context, '${rows.length} applications exported');
   }
 
-  Widget _stat(String label, int v, IconData icon, List<Color> g, double w) => SizedBox(
+  Widget _stat(String label, int v, IconData icon, Color c, double w) => SizedBox(
         width: w,
         child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(colors: g, begin: Alignment.topLeft, end: Alignment.bottomRight),
-            boxShadow: [BoxShadow(color: g.last.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 8))],
-          ),
-          child: Row(children: [
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: kLine), boxShadow: kShadow),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$v', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, height: 1.1)),
-                const SizedBox(height: 4),
-                Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 13.5)),
+                Text(label, style: const TextStyle(fontSize: 14, color: kMuted, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 12),
+                Text('$v', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: c, height: 1.1)),
               ]),
             ),
-            const SizedBox(width: 8),
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-              child: Icon(icon, color: Colors.white),
-            ),
+            Icon(icon, size: 20, color: c == kInk ? kMuted : c),
           ]),
         ),
       );
@@ -185,10 +177,10 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
         final w = (c.maxWidth - 16 * (cols - 1)) / cols;
         int n(bool Function(int) f) => _all.where((a) => f(stageNo(a['registration_stage']))).length;
         return Wrap(spacing: 16, runSpacing: 16, children: [
-          _stat('Total Applications', _all.length, Icons.people_alt_rounded, const [Color(0xFF3B7DDD), kBlue], w),
-          _stat('Stage 1-3', n((s) => s >= 1 && s <= 3), Icons.schedule_rounded, const [Color(0xFFFFA45C), kOrange], w),
-          _stat('Stage 4-6', n((s) => s >= 4 && s <= 6), Icons.home_work_rounded, const [Color(0xFF8B6CF0), Color(0xFF6A47D9)], w),
-          _stat('Completed', n((s) => s == 10), Icons.verified_rounded, const [Color(0xFF3CC47C), kGreen], w),
+          _stat('Total Applications', _all.length, Icons.people_alt_outlined, kInk, w),
+          _stat('Stage 1-3', n((s) => s >= 1 && s <= 3), Icons.schedule_rounded, kBlue, w),
+          _stat('Stage 4-6', n((s) => s >= 4 && s <= 6), Icons.home_outlined, const Color(0xFF6A47D9), w),
+          _stat('Completed', n((s) => s == 10), Icons.check_circle_outline_rounded, kGreen, w),
         ]);
       });
 
@@ -242,6 +234,33 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
     );
   }
 
+  static final _sq = IconButton.styleFrom(side: const BorderSide(color: kLine), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)));
+
+  bool _needsValidation(Map a) => a['registration_stage'] == 'stage_1_registered' && a['stage_2_status'] != 'rejected';
+
+  Future<void> _validate(Map a) async {
+    final changed = await showDialog<bool>(context: context, builder: (_) => ReviewApplicantDialog(id: '${a['id']}'));
+    if (changed == true) _load();
+  }
+
+  void _payments() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _PageFrame('Payment Management', PaymentManagementPage())));
+
+  Widget _actions(Map<String, dynamic> a) => Row(mainAxisSize: MainAxisSize.min, children: [
+        IconButton(tooltip: 'View details', onPressed: () => _open(a), icon: const Icon(Icons.visibility_outlined, size: 19, color: kInk), style: _sq),
+        if (_needsValidation(a) && Api.i.canReview) ...[
+          const SizedBox(width: 6),
+          IconButton(tooltip: 'Validate documents', onPressed: () => _validate(a), icon: const Icon(Icons.assignment_turned_in_outlined, size: 19, color: kInk), style: _sq),
+        ],
+        if (stageNo(a['registration_stage']) == 3 && Api.i.canPayments) ...[
+          const SizedBox(width: 6),
+          IconButton(
+              tooltip: 'Payments',
+              onPressed: _payments,
+              icon: const Icon(Icons.currency_rupee_rounded, size: 19, color: Colors.white),
+              style: IconButton.styleFrom(backgroundColor: kBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+        ],
+      ]);
+
   DataColumn _c(String t, int i) => DataColumn(
         label: Text(t),
         onSort: (ci, asc) => setState(() {
@@ -261,28 +280,26 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
                 showCheckboxColumn: false,
                 sortColumnIndex: _col,
                 sortAscending: _asc,
-                dataRowMinHeight: 64,
-                dataRowMaxHeight: 64,
+                dataRowMinHeight: 72,
+                dataRowMaxHeight: 72,
                 horizontalMargin: 22,
                 columnSpacing: 28,
+                headingTextStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: kMuted),
+                headingRowColor: const WidgetStatePropertyAll(Colors.white),
                 columns: [
-                  _c('FORM NO.', 0),
-                  _c('NAME', 1),
-                  _c('CONTACT', 2),
-                  _c('STAGE', 3),
-                  _c('UPDATED', 4),
-                  const DataColumn(label: Text('HANDLED BY')),
-                  const DataColumn(label: Text('ACTIONS')),
+                  _c('Form No.', 0),
+                  _c('Name', 1),
+                  _c('Contact', 2),
+                  _c('Stage', 3),
+                  _c('Updated', 4),
+                  const DataColumn(label: Text('Handled By')),
+                  const DataColumn(label: Text('Actions')),
                 ],
                 rows: [
                   for (final a in rows)
                     DataRow(onSelectChanged: (_) => _open(a), cells: [
                       DataCell(Text('${a['unique_id'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w700, color: kInk))),
-                      DataCell(Row(children: [
-                        Avatar(fullName(a), size: 34),
-                        const SizedBox(width: 10),
-                        Text(fullName(a), style: const TextStyle(fontWeight: FontWeight.w700, color: kInk)),
-                      ])),
+                      DataCell(Text(fullName(a), style: const TextStyle(fontWeight: FontWeight.w700, color: kInk))),
                       DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('${a['email'] ?? '-'}', style: const TextStyle(color: kInk, fontSize: 13)),
                         Text('${a['phone'] ?? '-'}', style: const TextStyle(fontSize: 12, color: kMuted)),
@@ -290,12 +307,7 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
                       DataCell(Pill('Stage ${stageNo(a['registration_stage'])}', stageColor(a['registration_stage']))),
                       DataCell(Text(shortDate(a['updated_at'] ?? a['created_at']), style: const TextStyle(color: kMuted))),
                       DataCell(Text(_by(a), style: const TextStyle(color: kInk))),
-                      DataCell(IconButton(
-                        tooltip: 'View details',
-                        onPressed: () => _open(a),
-                        icon: const Icon(Icons.visibility_outlined, size: 19, color: kInk),
-                        style: IconButton.styleFrom(side: const BorderSide(color: kLine), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      )),
+                      DataCell(_actions(a)),
                     ]),
                 ],
               ),

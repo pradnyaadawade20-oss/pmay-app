@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import 'all_applications.dart';
+import 'agreement_receipts.dart';
+import 'bank_documents.dart';
 import 'applicants.dart';
 import 'database_tables.dart';
 import 'document_settings.dart';
-import 'payments.dart';
+import 'payment_management.dart';
 import 'unit_allotment.dart';
+import 'validation_queue.dart';
 import 'user_management.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -109,20 +112,20 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Cards are shown only for what the signed-in role may open (the server enforces the same rules).
   List<_Action> _actions(Map s) => [
         _Action(Icons.fact_check_rounded, kOrange, 'Validation Queue', 'Review and verify applicant documents',
-            () => _o('Validation Queue', ApplicantsPage(initialStage: 'stage_1_registered', onOpen: widget.onOpen)),
+            () => _o('Validation Queue', const ValidationQueuePage()),
             count: '${s['pending_review'] ?? 0}', countLabel: 'Pending'),
         if (Api.i.canPayments)
           _Action(Icons.account_balance_wallet_rounded, kBlue, 'Payment Management', 'Verify offline payments',
-              () => _o('Payment Management', const PaymentsPage()),
+              () => _o('Payment Management', const PaymentManagementPage()),
               count: '${s['pending_payments'] ?? 0}', countLabel: 'Pending Verification'),
         _Action(Icons.home_work_rounded, kGreen, 'Unit Allotment', 'Manage units and allot flats to applicants',
             () => _o('Unit Allotment', const UnitAllotmentPage()),
             count: '${s['available_units'] ?? 0}', countLabel: 'Available Units'),
         _Action(Icons.description_rounded, kOrange, 'Agreement Receipts', 'Verify signed agreement receipts (Stage 6)',
-            () => _o('Agreement Receipts', ApplicantsPage(initialStage: 'stage_6_agreement_receipt', onOpen: widget.onOpen)),
+            () => _o('Agreement Receipts', const AgreementReceiptsPage()),
             linkLabel: 'Review Agreements'),
         _Action(Icons.folder_copy_rounded, _teal, 'Bank Documents', 'Review bank documents for loan (Stage 7)',
-            () => _o('Bank Documents', ApplicantsPage(initialStage: 'stage_7_bank_document', onOpen: widget.onOpen)),
+            () => _o('Bank Documents', const BankDocumentsPage()),
             linkLabel: 'Review Documents'),
         _Action(Icons.account_balance_rounded, kBlue, 'Banking / Loans', 'Manage loan applications and approvals',
             () => _o('Banking / Loans', ApplicantsPage(initialStage: 'stage_8_bank_loan', onOpen: widget.onOpen)),

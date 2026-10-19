@@ -2,9 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
+import 'agreement_receipts.dart';
+import 'bank_documents.dart';
 import 'applicant_detail.dart';
-import 'payments.dart';
+import 'payment_management.dart';
 import 'unit_allotment.dart';
+import 'validation_queue.dart';
 
 /// Opens the screen that belongs to a stage (used by the stage dropdown).
 /// [onOpen] is the shell's sub-screen opener (title, page).
@@ -14,15 +17,15 @@ void openStageScreen(void Function(String title, Widget page) onOpen, String sta
     case '':
       onOpen('All Applicants', list);
     case 'stage_1_registered':
-      onOpen('Validation Queue', list);
+      onOpen('Validation Queue', const ValidationQueuePage());
     case 'stage_3_payment':
-      onOpen('Payment Management', const PaymentsPage());
+      onOpen('Payment Management', const PaymentManagementPage());
     case 'stage_4_allotment':
       onOpen('Unit Allotment', const UnitAllotmentPage());
     case 'stage_6_agreement_receipt':
-      onOpen('Agreement Receipts', list);
+      onOpen('Agreement Receipts', const AgreementReceiptsPage());
     case 'stage_7_bank_document':
-      onOpen('Bank Documents', list);
+      onOpen('Bank Documents', const BankDocumentsPage());
     case 'stage_8_bank_loan':
       onOpen('Banking / Loans', list);
     default:
