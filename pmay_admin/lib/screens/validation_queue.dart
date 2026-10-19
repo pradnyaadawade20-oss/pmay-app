@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
+import 'verify_contact_dialog.dart';
 
 /// Daily approval limit shown in the "Remaining Today" card. Change if your limit differs.
 const kDailyApprovalLimit = 1000;
@@ -185,17 +186,37 @@ class _ValidationQueuePageState extends State<ValidationQueuePage> {
       );
 
   // ---------- verified badges ----------
-  Widget _vBadge(String t, bool ok) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-            color: ok ? kGreen.withValues(alpha: 0.10) : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: ok ? kGreen.withValues(alpha: 0.4) : kLine)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(ok ? Icons.check_circle_outline_rounded : Icons.radio_button_unchecked_rounded, size: 13, color: ok ? kGreen : kMuted),
-          const SizedBox(width: 4),
-          Text(ok ? t : 'Verify $t', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: ok ? kGreen : kMuted)),
-        ]),
+  Future<void> _verifyContact(Map a, bool isEmail) async {
+    final ok = await showVerifyContactDialog(context, applicant: a, isEmail: isEmail);
+    if (ok == true && mounted) {
+      setState(() {
+        if (isEmail) {
+          a['email_verified'] = true;
+          a['is_email_verified'] = true;
+        } else {
+          a['phone_verified'] = true;
+          a['is_phone_verified'] = true;
+          a['mobile_verified'] = true;
+        }
+      });
+    }
+  }
+
+  Widget _vBadge(String t, bool ok, {VoidCallback? onTap}) => InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: ok ? null : onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+              color: ok ? kGreen.withValues(alpha: 0.10) : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: ok ? kGreen.withValues(alpha: 0.4) : kLine)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(ok ? Icons.check_circle_outline_rounded : Icons.radio_button_unchecked_rounded, size: 13, color: ok ? kGreen : kMuted),
+            const SizedBox(width: 4),
+            Text(ok ? t : 'Verify $t', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: ok ? kGreen : kMuted)),
+          ]),
+        ),
       );
 
   Widget _table(List<Map<String, dynamic>> rows) => LayoutBuilder(
@@ -223,7 +244,7 @@ class _ValidationQueuePageState extends State<ValidationQueuePage> {
               ],
               rows: [
                 for (final a in rows)
-                  DataRow(onSelectChanged: (_) => _review(a), cells: [
+                  DataRow(cells: [
                     DataCell(Text(_s(a['unique_id']), style: const TextStyle(fontWeight: FontWeight.w700, color: kInk))),
                     DataCell(Text(fullName(a), style: const TextStyle(fontWeight: FontWeight.w600, color: kInk))),
                     DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -233,9 +254,9 @@ class _ValidationQueuePageState extends State<ValidationQueuePage> {
                     DataCell(Text(_s(a['aadhar_number']), style: const TextStyle(fontSize: 12.5))),
                     DataCell(Text(_s(a['pan_number']), style: const TextStyle(fontSize: 12.5))),
                     DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                      _vBadge('Email', _emailOk(a)),
+                      _vBadge('Email', _emailOk(a), onTap: () => _verifyContact(a, true)),
                       const SizedBox(width: 6),
-                      _vBadge('Phone', _phoneOk(a)),
+                      _vBadge('Phone', _phoneOk(a), onTap: () => _verifyContact(a, false)),
                     ])),
                     DataCell(Text(_fmt(_date(a)), style: const TextStyle(fontSize: 12.5))),
                     DataCell(OutlinedButton.icon(

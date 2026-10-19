@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
-import 'applicant_detail.dart';
+import 'dart:typed_data';
+import '../web_open.dart';
 
 int _stageNo(Map a) => int.tryParse(RegExp(r'stage_(\d+)').firstMatch('${a['registration_stage']}')?.group(1) ?? '') ?? 0;
 
@@ -64,7 +65,7 @@ class _AgreementReceiptsPageState extends State<AgreementReceiptsPage> {
   }
 
   Future<void> _view(Map a) async {
-    final changed = await showDialog<bool>(context: context, builder: (_) => ApplicantDetail(id: '${a['id']}'));
+    final changed = await showDialog<bool>(context: context, builder: (_) => AgreementReceiptDialog(id: '${a['id']}'));
     if (changed == true) _load();
   }
 
@@ -225,6 +226,167 @@ class _AgreementReceiptsPageState extends State<AgreementReceiptsPage> {
         const SizedBox(height: 20),
         _table(_rows),
       ]),
+    );
+  }
+}
+
+/// "Agreement Receipt Details" popup opened by the View button.
+class AgreementReceiptDialog extends StatefulWidget {
+  final String id;
+  const AgreementReceiptDialog({super.key, required this.id});
+  @override
+  State<AgreementReceiptDialog> createState() => _AgreementReceiptDialogState();
+}
+
+class _AgreementReceiptDialogState extends State<AgreementReceiptDialog> {
+  Map<String, dynamic>? _a;
+  String? _err;
+  Uint8List? _doc;
+  bool _busy = false;
+  final _reason = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final r = await Api.i.get(Ep.one(widget.id));
+      final a = Map<String, dynamic>.from(r['applicant'] ?? {});
+      Uint8List? bytes;
+      if (a['agreement_receipt_path'] != null) {
+        try {
+          bytes = await Api.i.fileBytes(Ep.doc(widget.id, 'agreement_signed'));
+        } catch (_) {}
+      }
+      if (mounted) setState(() {
+        _a = a;
+        _doc = bytes;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _err = e.toString());
+    }
+  }
+
+  Future<void> _act(String action) async {
+    final reason = _reason.text.trim();
+    if (action == 'reject' && reason.isEmpty) {
+      toast(context, 'Enter a reason for rejection', error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await Api.i.post(Ep.agreementReview(widget.id), {'action': action, 'reason': reason});
+      if (!mounted) return;
+      toast(context, action == 'accept' ? 'Agreement approved' : 'Agreement rejected');
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        toast(context, e.toString(), error: true);
+      }
+    }
+  }
+
+  Widget _kv(String k, String v) => Text.rich(TextSpan(children: [
+        TextSpan(text: '$k: ', style: const TextStyle(color: kMuted)),
+        TextSpan(text: v, style: const TextStyle(color: kInk, fontWeight: FontWeight.w600)),
+      ]), style: const TextStyle(fontSize: 14.5));
+
+  Widget _docView() {
+    final b = _doc;
+    if (b == null) return const Text('No document uploaded', style: TextStyle(fontSize: 16, color: kMuted));
+    final pdf = b.length > 3 && b[0] == 0x25 && b[1] == 0x50;
+    if (pdf) {
+      return OutlinedButton.icon(onPressed: () => openBytes(b), icon: const Icon(Icons.picture_as_pdf_outlined, size: 18), label: const Text('Open receipt (PDF)'));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Container(color: kBg, constraints: const BoxConstraints(maxHeight: 320), width: double.infinity, child: Image.memory(b, fit: BoxFit.contain)),
+      ),
+      TextButton.icon(onPressed: () => openBytes(b), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open in new tab')),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = _a;
+    return Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 840, maxHeight: 720),
+        child: _err != null
+            ? Padding(padding: const EdgeInsets.all(30), child: Text(_err!, style: const TextStyle(color: kRed)))
+            : a == null
+                ? const SizedBox(height: 220, child: Center(child: CircularProgressIndicator()))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(30),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('Agreement Receipt Details', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: kInk)),
+                            const SizedBox(height: 4),
+                            Text('${a['unique_id'] ?? '-'} - ${fullName(a)}', style: const TextStyle(fontSize: 15, color: kMuted)),
+                          ]),
+                        ),
+                        InkWell(onTap: () => Navigator.pop(context), child: const Icon(Icons.close_rounded, color: kMuted, size: 22)),
+                      ]),
+                      const SizedBox(height: 22),
+                      const Text('Applicant Information', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: kInk)),
+                      const SizedBox(height: 12),
+                      LayoutBuilder(builder: (context, c) {
+                        final items = [
+                          _kv('Name', fullName(a)),
+                          _kv('Email', '${a['email'] ?? '-'}'),
+                          _kv('Phone', '${a['phone'] ?? '-'}'),
+                          _kv('Submitted', _submitted(a)),
+                        ];
+                        if (c.maxWidth < 520) {
+                          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [for (final i in items) Padding(padding: const EdgeInsets.only(bottom: 10), child: i)]);
+                        }
+                        return Column(children: [
+                          Row(children: [Expanded(child: items[0]), Expanded(child: items[1])]),
+                          const SizedBox(height: 14),
+                          Row(children: [Expanded(child: items[2]), Expanded(child: items[3])]),
+                        ]);
+                      }),
+                      const SizedBox(height: 22),
+                      const Text('Uploaded Agreement Receipt', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: kInk)),
+                      const SizedBox(height: 10),
+                      _docView(),
+                      if (Api.i.canReview && a['registration_stage'] == 'stage_6_agreement_receipt') ...[
+                        const SizedBox(height: 18),
+                        TextField(controller: _reason, maxLines: 2, decoration: const InputDecoration(hintText: 'Rejection reason (required to reject)')),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: FilledButton(onPressed: _busy ? null : () => _act('accept'), child: const Text('Approve'))),
+                          const SizedBox(width: 12),
+                          Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: kRed), onPressed: _busy ? null : () => _act('reject'), child: const Text('Reject'))),
+                        ]),
+                      ],
+                      const SizedBox(height: 20),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(foregroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
+                          child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ]),
+                  ),
+      ),
     );
   }
 }
