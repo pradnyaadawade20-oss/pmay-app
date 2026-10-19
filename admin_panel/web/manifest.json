@@ -1,0 +1,12 @@
+{
+  "name": "Krutarth PMAY Admin",
+  "short_name": "PMAY Admin",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F3F6FB",
+  "theme_color": "#1649A8",
+  "description": "Krutarth PMAY Admin Panel",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": []
+}
