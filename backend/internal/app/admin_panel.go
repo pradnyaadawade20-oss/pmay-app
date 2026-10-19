@@ -73,9 +73,13 @@ func (s *Server) panelApplicants(w http.ResponseWriter, r *http.Request) {
 		search = q.Get("q")
 	}
 	rows, err := s.many(r.Context(), `SELECT a.id,a.unique_id,a.first_name,a.last_name,a.email,a.phone,a.email_verified,a.phone_verified,
-		a.registration_stage,a.stage_2_status,a.stage_2_reason,a.stage_4_status,a.handling_admin_id,a.created_at,a.updated_at,
+		a.registration_stage,a.stage_2_status,a.stage_2_reason,a.stage_4_status,a.stage_4_reason,a.handling_admin_id,a.created_at,a.updated_at,
+		a.pan_number,a.aadhar_number,l.loan_status,
+		(CASE WHEN l.upi_statement_path IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN l.itr_year1_path IS NOT NULL THEN 1 ELSE 0 END +
+		 CASE WHEN l.itr_year2_path IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN l.itr_year3_path IS NOT NULL THEN 1 ELSE 0 END +
+		 CASE WHEN l.bank_statement_path IS NOT NULL THEN 1 ELSE 0 END) AS bank_documents_count,
 		COALESCE(ur.display_name,'') AS handled_by_name
-		FROM applicants a LEFT JOIN LATERAL (SELECT display_name FROM user_roles WHERE user_id=a.handling_admin_id LIMIT 1) ur ON true
+		FROM applicants a LEFT JOIN loan_details l ON l.applicant_id=a.id LEFT JOIN LATERAL (SELECT display_name FROM user_roles WHERE user_id=a.handling_admin_id LIMIT 1) ur ON true
 		WHERE ($1='' OR a.registration_stage=$1)
 		AND ($2='' OR a.first_name||' '||a.last_name ILIKE '%'||$2||'%' OR a.unique_id ILIKE '%'||$2||'%'
 		     OR a.phone LIKE '%'||$2||'%' OR a.email ILIKE '%'||$2||'%' OR a.pan_number ILIKE $2)
@@ -167,9 +171,11 @@ func (s *Server) panelAllot(w http.ResponseWriter, r *http.Request) {
 // GET /api/admin/payments?status=pending
 func (s *Server) panelPayments(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.many(r.Context(), `SELECT p.id,a.unique_id,a.first_name||' '||a.last_name AS applicant_name,p.amount,
-		p.payment_method AS mode,p.payment_status,p.offline_receipt_path,p.receipt_number,p.created_at
+		p.payment_method AS mode,p.payment_method,p.payment_status,p.payment_stage,p.payment_stage AS stage,
+		p.offline_receipt_path,p.receipt_number,p.razorpay_payment_id AS transaction_id,p.payment_date,p.created_at,
+		a.email AS applicant_email,a.phone AS applicant_phone
 		FROM payments p JOIN applicants a ON a.id=p.applicant_id
-		WHERE ($1='' OR p.payment_status=$1) ORDER BY p.created_at DESC LIMIT 500`, r.URL.Query().Get("status"))
+		WHERE ($1='' OR $1='all' OR p.payment_status=$1) ORDER BY p.created_at DESC LIMIT 500`, r.URL.Query().Get("status"))
 	if err != nil {
 		fail(w, 500, "DB error")
 		return
@@ -571,4 +577,20 @@ func (s *Server) superAdminCount(ctx context.Context) int {
 	var n int
 	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM user_roles WHERE role='super_admin'`).Scan(&n)
 	return n
+}
+
+// GET /api/admin/payments/{id}/receipt: the receipt file the applicant uploaded for an offline payment
+func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) {
+	m, _ := s.one(r.Context(), `SELECT offline_receipt_path AS p FROM payments WHERE id::text=$1`, r.PathValue("id"))
+	p, _ := m["p"].(string)
+	if p == "" {
+		fail(w, 404, "No receipt uploaded")
+		return
+	}
+	rel := filepath.Clean(p)
+	if strings.Contains(rel, "..") {
+		fail(w, 400, "Bad path")
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.UploadDir, rel))
 }
