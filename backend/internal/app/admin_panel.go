@@ -594,3 +594,60 @@ func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) {
 	}
 	http.ServeFile(w, r, filepath.Join(s.cfg.UploadDir, rel))
 }
+
+// POST /api/admin/applicants/{id}/send-otp {channel: email|phone}
+// Sends an OTP to the applicant's own email/phone so an admin can verify the contact together with them.
+func (s *Server) adminSendContactOTP(w http.ResponseWriter, r *http.Request) {
+	typ, contact, ok := s.contactFor(w, r)
+	if !ok {
+		return
+	}
+	body := M{"type": typ}
+	body[typ] = contact // {"type":"email","email":...} or {"type":"phone","phone":...}
+	rewriteBody(r, body)
+	s.sendOTP(w, r)
+}
+
+// POST /api/admin/applicants/{id}/verify-otp {channel, otp}
+func (s *Server) adminVerifyContactOTP(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Channel string `json:"channel"`
+		Otp     string `json:"otp"`
+	}
+	if !decode(r, &in) {
+		fail(w, 400, "Invalid body")
+		return
+	}
+	rewriteBody(r, M{"channel": in.Channel})
+	typ, contact, ok := s.contactFor(w, r)
+	if !ok {
+		return
+	}
+	body := M{"type": typ, "otp": in.Otp}
+	body[typ] = contact
+	rewriteBody(r, body)
+	s.verifyOTP(w, r)
+	s.audit(r.Context(), claimsOf(r).Sub, "verify_contact", "applicant", r.PathValue("id"), M{"channel": typ})
+}
+
+// contactFor reads {channel} from the body and returns ("email"|"phone", the applicant's value for it).
+func (s *Server) contactFor(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+	var in struct {
+		Channel string `json:"channel"`
+	}
+	if !decode(r, &in) || (in.Channel != "email" && in.Channel != "phone") {
+		fail(w, 400, "channel must be email or phone")
+		return "", "", false
+	}
+	m, _ := s.one(r.Context(), `SELECT email, phone FROM applicants WHERE id::text=$1`, r.PathValue("id"))
+	if m == nil {
+		fail(w, 404, "Applicant not found")
+		return "", "", false
+	}
+	v, _ := m[in.Channel].(string)
+	if v == "" {
+		fail(w, 404, "Applicant has no "+in.Channel)
+		return "", "", false
+	}
+	return in.Channel, v, true
+}
