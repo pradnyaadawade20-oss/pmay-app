@@ -5,6 +5,7 @@ import '../common.dart';
 import 'all_applications.dart';
 import 'agreement_receipts.dart';
 import 'bank_documents.dart';
+import 'banking_loans.dart';
 import 'applicants.dart';
 import 'database_tables.dart';
 import 'document_settings.dart';
@@ -128,7 +129,7 @@ class _DashboardPageState extends State<DashboardPage> {
             () => _o('Bank Documents', const BankDocumentsPage()),
             linkLabel: 'Review Documents'),
         _Action(Icons.account_balance_rounded, kBlue, 'Banking / Loans', 'Manage loan applications and approvals',
-            () => _o('Banking / Loans', ApplicantsPage(initialStage: 'stage_8_bank_loan', onOpen: widget.onOpen)),
+            () => _o('Banking / Loans', const BankingLoansPage()),
             linkLabel: 'Approve/Reject Loans'),
         _Action(Icons.people_alt_rounded, _purple, 'All Applications', 'View all forms and their current stages',
             () => _o('All Applications', const AllApplicationsPage()),

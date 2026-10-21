@@ -4,6 +4,7 @@ import '../api.dart';
 import '../common.dart';
 import 'agreement_receipts.dart';
 import 'bank_documents.dart';
+import 'banking_loans.dart';
 import 'applicant_detail.dart';
 import 'payment_management.dart';
 import 'unit_allotment.dart';
@@ -27,7 +28,7 @@ void openStageScreen(void Function(String title, Widget page) onOpen, String sta
     case 'stage_7_bank_document':
       onOpen('Bank Documents', const BankDocumentsPage());
     case 'stage_8_bank_loan':
-      onOpen('Banking / Loans', list);
+      onOpen('Banking / Loans', const BankingLoansPage());
     default:
       onOpen(stages[stage] ?? 'Applicants', list);
   }
