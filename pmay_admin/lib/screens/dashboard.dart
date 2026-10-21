@@ -132,7 +132,7 @@ class _DashboardPageState extends State<DashboardPage> {
             () => _o('Banking / Loans', const BankingLoansPage()),
             linkLabel: 'Approve/Reject Loans'),
         _Action(Icons.people_alt_rounded, _purple, 'All Applications', 'View all forms and their current stages',
-            () => _o('All Applications', const AllApplicationsPage()),
+            () => _o('All Applications', AllApplicationsPage(onOpen: widget.onOpen)),
             count: '${s['total'] ?? 0}', countLabel: 'Total Forms'),
         if (Api.i.isSuper) ...[
           _Action(Icons.settings_rounded, kMuted, 'Document Settings', 'Configure document upload limits',

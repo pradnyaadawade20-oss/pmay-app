@@ -5,6 +5,7 @@ import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'applicant_detail.dart';
+import 'applicants.dart' show openStageScreen;
 import 'payment_management.dart' show PaymentManagementPage;
 import 'validation_queue.dart' show ReviewApplicantDialog;
 import 'unit_allotment.dart';
@@ -63,7 +64,9 @@ String _csv(String v) => '"${v.replaceAll('"', '""')}"';
 
 // ---------------------------------------------------------------- page
 class AllApplicationsPage extends StatefulWidget {
-  const AllApplicationsPage({super.key});
+  /// Shell's sub-screen opener: choosing a stage in the dropdown opens that stage's screen.
+  final void Function(String title, Widget page)? onOpen;
+  const AllApplicationsPage({super.key, this.onOpen});
   @override
   State<AllApplicationsPage> createState() => _AllApplicationsPageState();
 }
@@ -212,7 +215,14 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
                 const DropdownMenuItem(value: '', child: Text('All Stages')),
                 for (final e in stageOptions) DropdownMenuItem(value: e.$1, child: Text(e.$2, overflow: TextOverflow.ellipsis)),
               ],
-              onChanged: (v) => setState(() => _stage = v ?? ''),
+              onChanged: (v) {
+                final st = v ?? '';
+                if (st.isNotEmpty && widget.onOpen != null) {
+                  openStageScreen(widget.onOpen!, st);
+                  return;
+                }
+                setState(() => _stage = st);
+              },
             ),
           ),
           SizedBox(
