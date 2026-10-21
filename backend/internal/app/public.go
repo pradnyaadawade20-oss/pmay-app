@@ -126,12 +126,14 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		rel, err := s.saveFile(r.Context(), appID, k, fh)
 		if err != nil {
 			_ = os.RemoveAll(filepath.Join(s.cfg.UploadDir, appID))
+			s.dropBlobs(r.Context(), appID+"/")
 			fail(w, 400, err.Error())
 			return
 		}
 		if _, err := tx.ExecContext(r.Context(), `INSERT INTO uploads(applicant_id,upload_type,file_name,file_path,file_size,uploaded_by) VALUES ($1,$2,$3,$4,$5,$6)`,
 			appID, k, fh.Filename, rel, fh.Size, userID); err != nil {
 			_ = os.RemoveAll(filepath.Join(s.cfg.UploadDir, appID))
+			s.dropBlobs(r.Context(), appID+"/")
 			fail(w, 500, "Failed to save upload record")
 			return
 		}

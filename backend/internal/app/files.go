@@ -1,9 +1,11 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -51,13 +53,60 @@ func (s *Server) saveFile(ctx context.Context, applicantID, utype string, fh *mu
 		return "", err
 	}
 	defer src.Close()
-	dst, err := os.Create(full)
+	data, err := io.ReadAll(io.LimitReader(src, int64(maxMB*1024*1024)+1))
 	if err != nil {
 		return "", err
 	}
-	defer dst.Close()
-	_, err = io.Copy(dst, src)
-	return rel, err
+	// The database copy is what survives redeploys; the disk copy is just a fast cache.
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO file_blobs(path,content_type,data) VALUES ($1,$2,$3)
+		ON CONFLICT (path) DO UPDATE SET data=EXCLUDED.data, content_type=EXCLUDED.content_type`, rel, contentTypeFor(ext), data); err != nil {
+		return "", fmt.Errorf("could not store the file: %w", err)
+	}
+	if err := os.WriteFile(full, data, 0o644); err != nil {
+		log.Println("saveFile: disk copy failed (database copy kept):", err)
+	}
+	return rel, nil
+}
+
+func contentTypeFor(ext string) string {
+	switch ext {
+	case "jpg", "jpeg":
+		return "image/jpeg"
+	case "png":
+		return "image/png"
+	case "pdf":
+		return "application/pdf"
+	}
+	return "application/octet-stream"
+}
+
+// serveStored sends an uploaded file: from disk if present, otherwise from the database copy.
+// rel is the relative path stored in the DB (checked by the caller for ownership / role).
+func (s *Server) serveStored(w http.ResponseWriter, r *http.Request, rel string) {
+	rel = filepath.Clean(rel)
+	if strings.Contains(rel, "..") {
+		fail(w, 400, "Bad path")
+		return
+	}
+	full := filepath.Join(s.cfg.UploadDir, rel)
+	if st, err := os.Stat(full); err == nil && !st.IsDir() {
+		http.ServeFile(w, r, full)
+		return
+	}
+	var ct string
+	var data []byte
+	var created time.Time
+	if err := s.db.QueryRowContext(r.Context(), `SELECT content_type, data, created_at FROM file_blobs WHERE path=$1`, filepath.ToSlash(rel)).Scan(&ct, &data, &created); err != nil {
+		fail(w, 404, "The file is no longer stored. Ask the applicant to upload it again.")
+		return
+	}
+	w.Header().Set("Content-Type", ct)
+	http.ServeContent(w, r, filepath.Base(rel), created, bytes.NewReader(data))
+}
+
+// dropBlobs removes stored copies under a path prefix (e.g. an applicant folder) after a failed or deleted upload.
+func (s *Server) dropBlobs(ctx context.Context, prefix string) {
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM file_blobs WHERE path LIKE $1`, prefix+"%");
 }
 
 // GET /api/files/{path...}  -> owner (first path segment == own applicant id) or any admin role.
@@ -75,5 +124,5 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.UploadDir, rel))
+	s.serveStored(w, r, rel)
 }

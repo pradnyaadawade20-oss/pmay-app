@@ -124,7 +124,7 @@ func (s *Server) adminApplicantDoc(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "Bad path")
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.UploadDir, rel))
+	s.serveStored(w, r, rel)
 }
 
 // ---- units ----
@@ -519,6 +519,7 @@ func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 	case "applicants":
 		// free any unit, then drop the login too so the person can re-register
 		_, _ = tx.ExecContext(ctx, `UPDATE units SET status='available', allocated_to=NULL, allocated_at=NULL WHERE allocated_to::text=$1`, id)
+		_, _ = tx.ExecContext(ctx, `DELETE FROM file_blobs WHERE path LIKE $1`, id+"/%")
 		var userID string
 		if err = tx.QueryRowContext(ctx, `DELETE FROM applicants WHERE id::text=$1 RETURNING user_id`, id).Scan(&userID); err == nil {
 			_, err = tx.ExecContext(ctx, `DELETE FROM users WHERE id=$1`, userID)
@@ -592,7 +593,7 @@ func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "Bad path")
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.UploadDir, rel))
+	s.serveStored(w, r, rel)
 }
 
 // POST /api/admin/applicants/{id}/send-otp {channel: email|phone}

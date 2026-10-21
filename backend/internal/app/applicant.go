@@ -88,6 +88,7 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 	_, e2 := tx.ExecContext(r.Context(), `UPDATE applicants SET `+set+`, updated_at=now() WHERE id=$1`, id, rel)
 	if e1 != nil || e2 != nil || tx.Commit() != nil {
 		_ = os.Remove(filepath.Join(s.cfg.UploadDir, rel))
+		s.dropBlobs(r.Context(), rel)
 		fail(w, 500, "Failed to save upload")
 		return
 	}
