@@ -18,6 +18,7 @@ void openStageScreen(void Function(String title, Widget page) onOpen, String sta
     case '':
       onOpen('All Applicants', list);
     case 'stage_1_registered':
+    case 'stage_2_validation': // stage 2 (validation) lives inside stage 1 in the backend
       onOpen('Validation Queue', const ValidationQueuePage());
     case 'stage_3_payment':
       onOpen('Payment Management', const PaymentManagementPage());
@@ -104,7 +105,7 @@ class _ApplicantsPageState extends State<ApplicantsPage> {
             SizedBox(
               width: avail < 250 ? avail : 250,
               child: DropdownButtonFormField<String>(
-                initialValue: _stage,
+                initialValue: (_stage.isEmpty || stages.containsKey(_stage)) ? _stage : '',
                 isExpanded: true,
                 decoration: const InputDecoration(isDense: true, prefixIcon: Icon(Icons.filter_list_rounded)),
                 items: [
