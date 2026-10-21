@@ -117,7 +117,10 @@ class Api {
 
   Future<Uint8List> fileBytes(String path) async {
     final r = await http.get(Uri.parse('$base$path'), headers: _h);
-    if (r.statusCode >= 400) throw ApiException('Document not found', r.statusCode);
+    if (r.statusCode >= 400) {
+      final body = r.body.length > 120 ? r.body.substring(0, 120) : r.body;
+      throw ApiException('Document not found (${r.statusCode}): $body', r.statusCode);
+    }
     return r.bodyBytes;
   }
 }

@@ -419,7 +419,7 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
       );
     } catch (e) {
       _docs.remove(kind);
-      if (mounted) toast(context, 'Document not available', error: true);
+      if (mounted) toast(context, 'Document not available: $e', error: true);
     }
   }
 
