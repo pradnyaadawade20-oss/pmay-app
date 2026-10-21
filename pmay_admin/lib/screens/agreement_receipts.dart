@@ -267,10 +267,12 @@ class _AgreementReceiptDialogState extends State<AgreementReceiptDialog> {
           bytes = await Api.i.fileBytes(Ep.doc(widget.id, 'agreement_signed'));
         } catch (_) {}
       }
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _a = a;
         _doc = bytes;
       });
+      }
     } catch (e) {
       if (mounted) setState(() => _err = e.toString());
     }

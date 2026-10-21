@@ -63,10 +63,12 @@ class _VerifyContactDialogState extends State<VerifyContactDialog> {
       _startTimer();
       toast(context, 'OTP has been sent to $_value');
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _busy = false;
         _err = e.toString();
       });
+      }
     }
   }
 
@@ -81,10 +83,12 @@ class _VerifyContactDialogState extends State<VerifyContactDialog> {
       toast(context, widget.isEmail ? 'Email verified' : 'Phone verified');
       Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _busy = false;
         _err = e.toString();
       });
+      }
     }
   }
 
