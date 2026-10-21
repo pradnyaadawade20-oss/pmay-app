@@ -142,7 +142,9 @@ class _AgreementReceiptsPageState extends State<AgreementReceiptsPage> {
           child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: c.maxWidth < 760 ? 760 : c.maxWidth),
             child: rows.isEmpty
-                ? const Column(children: [
+                ? SizedBox(
+                    width: c.maxWidth < 760 ? 760 : c.maxWidth,
+                    child: const Column(children: [
                     Padding(
                         padding: EdgeInsets.fromLTRB(20, 18, 20, 18),
                         child: Row(children: [
@@ -156,7 +158,7 @@ class _AgreementReceiptsPageState extends State<AgreementReceiptsPage> {
                     Padding(
                         padding: EdgeInsets.symmetric(vertical: 40),
                         child: Center(child: Text('No agreement receipts found', style: TextStyle(fontSize: 15.5, color: kMuted)))),
-                  ])
+                  ]))
                 : DataTable(
                     showCheckboxColumn: false,
                     headingRowHeight: 60,
