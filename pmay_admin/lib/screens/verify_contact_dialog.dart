@@ -33,6 +33,7 @@ class _VerifyContactDialogState extends State<VerifyContactDialog> {
   @override
   void dispose() {
     _timer?.cancel();
+    _note.dispose();
     _otp.dispose();
     super.dispose();
   }
@@ -71,6 +72,64 @@ class _VerifyContactDialogState extends State<VerifyContactDialog> {
       }
     }
   }
+
+  final _note = TextEditingController();
+  bool _confirmed = false;
+
+  /// Manual verification: used when OTP email/SMS cannot be delivered. The admin confirms the contact
+  /// (e.g. by calling the applicant) and the server marks it verified and records who did it.
+  Future<void> _verifyManually() async {
+    setState(() {
+      _busy = true;
+      _err = null;
+    });
+    try {
+      await Api.i.post(Ep.manualVerify(_id), {'channel': _channel, 'note': _note.text.trim()});
+      if (!mounted) return;
+      toast(context, widget.isEmail ? 'Email marked as verified' : 'Phone marked as verified');
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _err = e.toString();
+        });
+      }
+    }
+  }
+
+  Widget _manualBox() => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 18),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: kOrange.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(10), border: Border.all(color: kOrange.withValues(alpha: 0.4))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Verify manually (no OTP)', style: TextStyle(fontWeight: FontWeight.w700, color: kInk)),
+          const SizedBox(height: 4),
+          Text('Use this when the OTP cannot be delivered. Confirm the ${widget.isEmail ? 'email' : 'phone number'} with the applicant first, for example by calling them.',
+              style: const TextStyle(fontSize: 12.5, color: kMuted)),
+          const SizedBox(height: 10),
+          TextField(controller: _note, maxLength: 200, decoration: const InputDecoration(hintText: 'Note (optional), e.g. confirmed by phone call', counterText: '', isDense: true)),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            dense: true,
+            value: _confirmed,
+            onChanged: _busy ? null : (v) => setState(() => _confirmed = v ?? false),
+            title: Text('I confirm this ${widget.isEmail ? 'email' : 'phone number'} belongs to the applicant', style: const TextStyle(fontSize: 13)),
+          ),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: kOrange),
+              onPressed: (_busy || !_confirmed) ? null : _verifyManually,
+              icon: const Icon(Icons.verified_user_outlined, size: 18),
+              label: const Text('Mark as Verified', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
+      );
 
   Future<void> _verify() async {
     setState(() {
@@ -185,6 +244,7 @@ class _VerifyContactDialogState extends State<VerifyContactDialog> {
               ]),
             ],
             if (!_sent && _err != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_err!, style: const TextStyle(color: kRed, fontSize: 12.5))),
+            _manualBox(),
           ]),
         ),
       ),

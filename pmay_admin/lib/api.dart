@@ -33,6 +33,7 @@ class Ep {
   static String allot(String unitId) => '/admin/units/$unitId/allot'; // POST {applicant_id}
   static String sendContactOtp(String id) => '/admin/applicants/$id/send-otp'; // POST {channel: email|phone}
   static String verifyContactOtp(String id) => '/admin/applicants/$id/verify-otp'; // POST {channel: email|phone, otp}
+  static String manualVerify(String id) => '/admin/applicants/$id/verify-contact'; // POST {channel: email|phone, note} - admin confirms the contact without an OTP
   static String payments(String status) => '/admin/payments?status=$status';
   static String payReceipt(String id) => '/admin/payments/$id/receipt'; // file bytes (image / PDF) of the uploaded receipt
   static String payAct(String id, String act) => '/admin/payments/$id/$act'; // confirm | reject

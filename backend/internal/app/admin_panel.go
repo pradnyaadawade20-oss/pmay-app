@@ -651,3 +651,36 @@ func (s *Server) contactFor(w http.ResponseWriter, r *http.Request) (string, str
 	}
 	return in.Channel, v, true
 }
+
+// POST /api/admin/applicants/{id}/verify-contact {channel: email|phone, note}
+// Manual verification for when OTP email/SMS cannot be delivered: an admin confirms the contact
+// (for example by calling the applicant) and it is marked verified, so the application can move on to validation.
+func (s *Server) adminVerifyContactManually(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Channel string `json:"channel"`
+		Note    string `json:"note"`
+	}
+	if !decode(r, &in) || (in.Channel != "email" && in.Channel != "phone") {
+		fail(w, 400, "channel must be email or phone")
+		return
+	}
+	col := in.Channel + "_verified" // fixed set of two column names, never user input
+	res, err := s.db.ExecContext(r.Context(), `UPDATE applicants SET `+col+`=true, updated_at=now() WHERE id::text=$1`, r.PathValue("id"))
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		fail(w, 404, "Applicant not found")
+		return
+	}
+	s.audit(r.Context(), claimsOf(r).Sub, "verify_contact_manual", "applicant", r.PathValue("id"),
+		M{"channel": in.Channel, "note": strings.TrimSpace(in.Note)})
+	what := "email"
+	if in.Channel == "phone" {
+		what = "phone number"
+	}
+	s.notify(r.Context(), r.PathValue("id"), "contact_verified", "Verified successfully",
+		"Your "+what+" has been verified by the admin. Your documents are now under review.")
+	writeJSON(w, 200, M{"success": true, "verified": true, "channel": in.Channel})
+}

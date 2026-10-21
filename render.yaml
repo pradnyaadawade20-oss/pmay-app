@@ -34,7 +34,7 @@ services:
       - key: DEV_MODE
         value: "false"           # true = OTP is returned in the API response (testing only, never for real users)
       - key: REQUIRE_CONTACT_VERIFIED
-        value: "false"           # TEMPORARY: lets admins accept applicants who skipped OTP. Set "true" once SMTP/SMS works
+        value: "true"            # admin must verify the contact (OTP, or manual "Mark as Verified" in the admin panel) before approving. "false" = no check
       - key: CORS_ORIGINS
         value: "*"
       - key: FCM_SERVICE_ACCOUNT_FILE
