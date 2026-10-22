@@ -36,10 +36,18 @@ String fullName(Map a) {
   return n.isEmpty ? '-' : n;
 }
 
+/// Messages (success and errors) appear in the bottom-right corner; on narrow screens they span the bottom.
 void toast(BuildContext c, String m, {bool error = false}) {
-  ScaffoldMessenger.of(c).showSnackBar(SnackBar(
+  const boxW = 380.0, gap = 24.0;
+  final w = MediaQuery.of(c).size.width;
+  final margin = w > boxW + 2 * gap
+      ? EdgeInsets.only(left: w - boxW - gap, right: gap, bottom: gap)
+      : const EdgeInsets.all(12);
+  final sm = ScaffoldMessenger.of(c);
+  sm.hideCurrentSnackBar(); // replace the previous message instead of queueing them
+  sm.showSnackBar(SnackBar(
     behavior: SnackBarBehavior.floating,
-    width: 380,
+    margin: margin,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     content: Text(m),
     backgroundColor: error ? kRed : kInk,
