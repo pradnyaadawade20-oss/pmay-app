@@ -6,6 +6,7 @@ import 'all_applications.dart';
 import 'agreement_receipts.dart';
 import 'bank_documents.dart';
 import 'banking_loans.dart';
+import 'mortgage.dart';
 import 'applicants.dart';
 import 'database_tables.dart';
 import 'document_settings.dart';
@@ -131,6 +132,9 @@ class _DashboardPageState extends State<DashboardPage> {
         _Action(Icons.account_balance_rounded, kBlue, 'Banking / Loans', 'Manage loan applications and approvals',
             () => _o('Banking / Loans', const BankingLoansPage()),
             linkLabel: 'Approve/Reject Loans'),
+        _Action(Icons.gavel_rounded, kGreen, 'Mortgage', 'View mortgage deeds and receipts (Stage 9)',
+            () => _o('Mortgage', const MortgagePage()),
+            count: '${((s['by_stage'] ?? {}) as Map)['stage_9_mortgage'] ?? 0}', countLabel: 'Awaiting Receipt'),
         _Action(Icons.people_alt_rounded, _purple, 'All Applications', 'View all forms and their current stages',
             () => _o('All Applications', AllApplicationsPage(onOpen: widget.onOpen)),
             count: '${s['total'] ?? 0}', countLabel: 'Total Forms'),

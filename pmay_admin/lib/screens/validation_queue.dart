@@ -40,6 +40,13 @@ bool _today(DateTime? d) {
   return d != null && d.year == n.year && d.month == n.month && d.day == n.day;
 }
 
+String _fmtDateTime(DateTime d) {
+  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  final m = d.minute.toString().padLeft(2, '0');
+  final sec = d.second.toString().padLeft(2, '0');
+  return '${d.month}/${d.day}/${d.year}, $h:$m:$sec ${d.hour >= 12 ? 'PM' : 'AM'}';
+}
+
 String _s(Object? v) => (v == null || '$v'.isEmpty) ? '-' : '$v';
 
 /// =====================================================================
@@ -358,6 +365,7 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
   ];
 
   Map<String, dynamic>? _a;
+  Map<String, dynamic> _resp = {};
   String? _err;
   bool _busy = false;
   final _done = <int>{};
@@ -369,7 +377,10 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
     super.initState();
     Api.i.get(Ep.one(widget.id)).then((r) {
       if (!mounted) return;
-      setState(() => _a = Map<String, dynamic>.from(r['applicant'] ?? {}));
+      setState(() {
+        _resp = Map<String, dynamic>.from(r as Map);
+        _a = Map<String, dynamic>.from(r['applicant'] ?? {});
+      });
     }).catchError((e) {
       if (mounted) setState(() => _err = e.toString());
     });
@@ -447,6 +458,57 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
     }
   }
 
+  /// Extra documents that get added after registration (agreement, bank docs, receipts...).
+  static const _extraKinds = {
+    'agreement_signed': 'Agreement Signed',
+    'upi_statement': 'UPI Statement',
+    'itr_year1': 'ITR Year1',
+    'itr_year2': 'ITR Year2',
+    'itr_year3': 'ITR Year3',
+    'bank_statement': 'Bank Statement',
+    'bank_loan_receipt': 'Bank Loan Receipt',
+    'mortgage_receipt': 'Mortgage Receipt',
+    'payment_receipt': 'Payment Receipt',
+  };
+
+  bool _has(Object? v) => v != null && '$v'.trim().isNotEmpty;
+
+  String _pretty(String k) => k
+      .split('_')
+      .where((w) => w.isNotEmpty)
+      .map((w) => w[0].toUpperCase() + w.substring(1))
+      .join(' ');
+
+  /// Registration docs (always) + every document uploaded later, in upload order.
+  List<MapEntry<String, String>> _docList() {
+    final a = _a ?? {};
+    final loan = Map<String, dynamic>.from((_resp['loan'] as Map?) ?? {});
+    final out = <String, String>{...docKinds};
+
+    final present = <String, bool>{
+      'agreement_signed': _has(a['agreement_receipt_path']),
+      'upi_statement': _has(loan['upi_statement_path']),
+      'itr_year1': _has(loan['itr_year1_path']),
+      'itr_year2': _has(loan['itr_year2_path']),
+      'itr_year3': _has(loan['itr_year3_path']),
+      'bank_statement': _has(loan['bank_statement_path']),
+      'bank_loan_receipt': _has(a['bank_loan_receipt_path']),
+      'mortgage_receipt': _has(a['mortgage_receipt_path']),
+      'payment_receipt': ((_resp['payments'] as List?) ?? const []).any((p) => p is Map && _has(p['offline_receipt_path'])),
+    };
+    for (final e in _extraKinds.entries) {
+      if (present[e.key] == true) out[e.key] = e.value;
+    }
+    // anything else found in the uploads table (new kinds added in future)
+    for (final u in (_resp['uploads'] as List?) ?? const []) {
+      if (u is Map && _has(u['upload_type'])) {
+        final k = '${u['upload_type']}';
+        out.putIfAbsent(k, () => _extraKinds[k] ?? _pretty(k));
+      }
+    }
+    return out.entries.toList();
+  }
+
   Widget _card(String title, Widget child) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -487,6 +549,10 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
   @override
   Widget build(BuildContext context) {
     final a = _a;
+    // Already approved / rejected -> read-only view (no checklist, no buttons)
+    final decided = a != null && !_isPending(a);
+    final rejected = a != null && _isRejected(a);
+    final verifiedAt = a == null ? null : _date(a, const ['stage_2_verified_at', 'stage_2_reviewed_at', 'stage_2_at', 'approved_at', 'updated_at']);
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       child: ConstrainedBox(
@@ -502,12 +568,13 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
                         Expanded(
                           child: Wrap(spacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
                             Text('Review Applicant: ${_s(a['unique_id'])}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kInk)),
-                            stagePill(a),
+                            decided && !rejected ? const Pill('Approved', kGreen) : stagePill(a),
                           ]),
                         ),
                         IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: kMuted)),
                       ]),
-                      const Text('Verify all documents and complete the checklist', style: TextStyle(fontSize: 12.5, color: kMuted)),
+                      Text(decided ? 'View applicant details and verification history' : 'Verify all documents and complete the checklist',
+                          style: const TextStyle(fontSize: 12.5, color: kMuted)),
                       const SizedBox(height: 16),
                       LayoutBuilder(builder: (context, c) {
                         final details = _card(
@@ -518,8 +585,10 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
                               _kv('Phone', a['phone']),
                               _kv('Aadhar', a['aadhar_number']),
                               _kv('PAN', a['pan_number']),
+                              if (decided) _kv(rejected ? 'Rejected At' : 'Verified At', verifiedAt == null ? null : _fmtDateTime(verifiedAt)),
+                              if (rejected) _kv('Rejection Reason', a['stage_2_reason']),
                             ]));
-                        final docs = _card('Uploaded Documents', Column(children: [for (final e in docKinds.entries.toList()..sort((x, y) => 0)) _docRow(e.key, e.value)]));
+                        final docs = _card('Uploaded Documents', Column(children: [for (final e in _docList()) _docRow(e.key, e.value)]));
                         return c.maxWidth < 520
                             ? Column(children: [details, const SizedBox(height: 14), docs])
                             : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -528,6 +597,7 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
                                 Expanded(child: docs),
                               ]);
                       }),
+                      if (!decided) ...[
                       const SizedBox(height: 14),
                       _card(
                           'Verification Checklist',
@@ -570,6 +640,7 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
                         ])
                       else
                         const Text('You do not have permission to approve or reject.', style: TextStyle(color: kMuted)),
+                      ],
                     ]),
                   ),
       ),
