@@ -13,7 +13,8 @@ type Config struct {
 	MSG91Key, MSG91Sender                            string
 	GeminiModel                                      string   // OCR via Google Gemini
 	GeminiAPIKeys                                    []string // up to 3 keys, tried in order (see geminiKeys)
-	RazorpayKeyID, RazorpaySecret                    string
+	CashfreeAppID, CashfreeSecret, CashfreeEnv       string // Cashfree PG: CASHFREE_ENV = sandbox (test keys) | production
+	PublicAPIURL                                     string // optional, e.g. https://pmay-app.onrender.com -> used as Cashfree webhook (notify_url)
 	AdminEmail, AdminPassword                        string
 	DevMode                                          bool // DEV_MODE=true -> OTP returned in API response (never use in prod)
 	CORSOrigins                                      string
@@ -45,8 +46,10 @@ func Load() Config {
 		MSG91Sender:            env("MSG91_SENDER_ID", "PMAYOT"),
 		GeminiAPIKeys:          geminiKeys(),
 		GeminiModel:            os.Getenv("GEMINI_MODEL"),
-		RazorpayKeyID:          os.Getenv("RAZORPAY_KEY_ID"),
-		RazorpaySecret:         os.Getenv("RAZORPAY_KEY_SECRET"),
+		CashfreeAppID:          os.Getenv("CASHFREE_APP_ID"),
+		CashfreeSecret:         os.Getenv("CASHFREE_SECRET_KEY"),
+		CashfreeEnv:            strings.ToLower(env("CASHFREE_ENV", "sandbox")),
+		PublicAPIURL:           strings.TrimRight(os.Getenv("PUBLIC_API_URL"), "/"),
 		AdminEmail:             os.Getenv("ADMIN_EMAIL"),
 		AdminPassword:          os.Getenv("ADMIN_PASSWORD"),
 		DevMode:                strings.EqualFold(os.Getenv("DEV_MODE"), "true"),

@@ -172,10 +172,11 @@ func (s *Server) panelAllot(w http.ResponseWriter, r *http.Request) {
 func (s *Server) panelPayments(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.many(r.Context(), `SELECT p.id,a.unique_id,a.first_name||' '||a.last_name AS applicant_name,p.amount,
 		p.payment_method AS mode,p.payment_method,p.payment_status,p.payment_stage,p.payment_stage AS stage,
-		p.offline_receipt_path,p.receipt_number,p.razorpay_payment_id AS transaction_id,p.payment_date,p.created_at,
+		p.offline_receipt_path,p.receipt_number,COALESCE(p.gateway_payment_id,p.razorpay_payment_id) AS transaction_id,p.payment_date,p.created_at,
 		a.email AS applicant_email,a.phone AS applicant_phone
 		FROM payments p JOIN applicants a ON a.id=p.applicant_id
-		WHERE ($1='' OR $1='all' OR p.payment_status=$1) ORDER BY p.created_at DESC LIMIT 500`, r.URL.Query().Get("status"))
+		WHERE ($1='' OR $1='all' OR p.payment_status=$1)
+		AND NOT ($1='pending' AND p.payment_method='online') ORDER BY p.created_at DESC LIMIT 500`, r.URL.Query().Get("status"))
 	if err != nil {
 		fail(w, 500, "DB error")
 		return

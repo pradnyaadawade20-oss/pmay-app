@@ -28,6 +28,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/payments/order", s.authed(s.payOrder))
 	mux.HandleFunc("POST /api/payments/verify", s.authed(s.payVerify))
 	mux.HandleFunc("POST /api/payments/offline", s.authed(s.payOffline))
+	mux.HandleFunc("POST /api/payments/cashfree-webhook", s.cashfreeWebhook) // called by Cashfree, verified by signature
 	mux.HandleFunc("GET /api/files/{path...}", s.authed(s.serveFile))
 
 	// admin
@@ -53,6 +54,10 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/units/eligible-applicants", s.authed(s.eligibleApplicants, anyAdmin...))
 	mux.HandleFunc("POST /api/admin/units/{id}/allot", s.authed(s.panelAllot, allotRole...))
 	mux.HandleFunc("GET /api/admin/payments", s.authed(s.panelPayments, financeRole...))
+	mux.HandleFunc("GET /api/admin/payments/awaiting", s.authed(s.panelPaymentsAwaiting, financeRole...))
+	mux.HandleFunc("POST /api/admin/payments/collect-order", s.authed(s.adminPayCollectOrder, financeRole...))
+	mux.HandleFunc("POST /api/admin/payments/collect-verify", s.authed(s.adminPayCollectVerify, financeRole...))
+	mux.HandleFunc("POST /api/admin/payments/collect-offline", s.authed(s.adminPayCollectOffline, financeRole...))
 	mux.HandleFunc("GET /api/admin/payments/{id}/receipt", s.authed(s.paymentReceipt, financeRole...))
 	mux.HandleFunc("POST /api/admin/payments/{id}/{act}", s.authed(s.panelPayAct, financeRole...))
 	mux.HandleFunc("GET /api/admin/document-settings", s.authed(s.docSettings, anyAdmin...))
