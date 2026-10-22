@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -30,7 +32,8 @@ String _date(dynamic v) {
   return d == null ? '-' : DateFormat('dd MMM yyyy').format(d.toLocal());
 }
 
-Future<void> shareDocument(Map<String, dynamic> data) async {
+/// Builds the PDF for a document (allotment | agreement | bank-loan | mortgage).
+Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data) async {
   final kind = data['kind'] as String;
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
@@ -86,5 +89,11 @@ Future<void> shareDocument(Map<String, dynamic> data) async {
       ]),
     ],
   ));
-  await Printing.sharePdf(bytes: await doc.save(), filename: '${kind}_${_s(a['unique_id'], 'doc')}.pdf');
+  return (bytes: await doc.save(), filename: '${kind}_${_s(a['unique_id'], 'doc')}.pdf');
+}
+
+/// Opens the system share sheet with the generated PDF.
+Future<void> shareDocument(Map<String, dynamic> data) async {
+  final pdf = await buildDocumentPdf(data);
+  await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.filename);
 }

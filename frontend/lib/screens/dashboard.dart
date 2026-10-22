@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../api.dart' show kMock;
+import '../doc_actions.dart';
 import '../pdf_docs.dart';
 import '../state.dart';
 import '../widgets.dart';
@@ -53,14 +56,65 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
+  bool _docBusy = false;
+
+  Future<({Uint8List bytes, String filename})> _buildPdf(String kind) async {
+    final d = await context.read<AppState>().api.get('/me/documents/$kind');
+    return buildDocumentPdf(d);
+  }
+
+  /// Download: saves the PDF to the phone's Downloads folder.
   Future<void> _doc(String kind) async {
+    if (_docBusy) return;
+    setState(() => _docBusy = true);
     try {
-      final d = await context.read<AppState>().api.get('/me/documents/$kind');
-      await shareDocument(d);
+      final pdf = await _buildPdf(kind);
+      final uri = await DocActions.download(pdf.bytes, pdf.filename);
+      if (!mounted || uri == null) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('Downloaded: ${pdf.filename}'),
+          action: SnackBarAction(
+              label: 'Open',
+              onPressed: () => DocActions.open(uri).catchError((_) {
+                    if (mounted) toast(context, 'No PDF viewer found. File is in your Downloads folder.', error: true);
+                  })),
+        ));
     } catch (e) {
       if (mounted) toast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _docBusy = false);
     }
   }
+
+  /// Share: sends the PDF directly to WhatsApp.
+  Future<void> _shareDoc(String kind, String label) async {
+    if (_docBusy) return;
+    setState(() => _docBusy = true);
+    try {
+      final pdf = await _buildPdf(kind);
+      await DocActions.shareWhatsApp(pdf.bytes, pdf.filename, text: label);
+    } catch (e) {
+      if (mounted) toast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _docBusy = false);
+    }
+  }
+
+  /// [Download] [Share] pair for one document.
+  Widget _docRow(String label, String kind) => Row(children: [
+        Expanded(
+            child: OutlinedButton.icon(
+                onPressed: _docBusy ? null : () => _doc(kind),
+                icon: const Icon(Icons.download),
+                label: Text(label, overflow: TextOverflow.ellipsis))),
+        const SizedBox(width: 10),
+        OutlinedButton.icon(
+            onPressed: _docBusy ? null : () => _shareDoc(kind, label),
+            icon: const Icon(Icons.share),
+            label: const Text('Share')),
+      ]);
 
   // ---------- payment info boxes ----------
   String _money(dynamic v, num fallback) {
@@ -172,8 +226,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
         return InfoCard(icon: Icons.description, color: Colors.blue, title: 'Sign the agreement',
             message: a['stage_4_status'] == 'rejected' ? 'Rejected: ${a['stage_4_reason'] ?? ''}. Please upload again.' : 'Download, print, sign and upload the agreement.',
             children: [
-              OutlinedButton.icon(onPressed: () => _doc('allotment'), icon: const Icon(Icons.download), label: const Text('Allotment letter')),
-              OutlinedButton.icon(onPressed: () => _doc('agreement'), icon: const Icon(Icons.download), label: const Text('Agreement for sale')),
+              _docRow('Allotment letter', 'allotment'),
+              _docRow('Agreement for sale', 'agreement'),
               FilledButton.icon(onPressed: _busy ? null : () => _upload('agreement_signed'), icon: const Icon(Icons.upload_file), label: const Text('Upload signed agreement')),
             ]);
       case 'stage_6_agreement_receipt':
