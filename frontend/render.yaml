@@ -46,7 +46,11 @@ services:
         sync: false
       - key: MSG91_AUTH_KEY
         sync: false
-      - key: RAZORPAY_KEY_ID
+      - key: CASHFREE_APP_ID
         sync: false
-      - key: RAZORPAY_KEY_SECRET
+      - key: CASHFREE_SECRET_KEY
         sync: false
+      - key: CASHFREE_ENV
+        value: sandbox           # sandbox = TEST keys. Change to production when you switch to live keys
+      - key: PUBLIC_API_URL
+        value: https://pmay-app.onrender.com   # enables the Cashfree webhook

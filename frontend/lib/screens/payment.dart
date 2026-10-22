@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfexceptions.dart';
 import 'package:provider/provider.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../state.dart';
 import '../widgets.dart';
 
-/// Booking payment: pay online with Razorpay, or upload an offline (bank/cheque) receipt for admin verification.
+/// Booking payment (online only) via Cashfree: UPI / Cards / Net Banking.
+/// Cash / cheque / DD payments are collected by the admin at the office (Admin panel -> Collect Payment).
+/// The server confirms every payment with Cashfree before the application moves to the next stage.
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
   @override
@@ -12,9 +19,8 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  final _rzp = Razorpay();
+  final _cf = CFPaymentGatewayService();
   final _amount = TextEditingController();
-  String? _receipt;
   bool _busy = false;
 
   @override
@@ -22,78 +28,76 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.initState();
     final p = context.read<AppState>().project;
     _amount.text = (num.tryParse('${p?['booking_amount'] ?? 25000}') ?? 25000).toStringAsFixed(0);
-    _rzp.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onSuccess);
-    _rzp.on(Razorpay.EVENT_PAYMENT_ERROR, (PaymentFailureResponse r) {
-      setState(() => _busy = false);
-      toast(context, r.message ?? 'Payment failed', error: true);
-    });
+    // must be set before doPayment()
+    _cf.setCallback(_onCashfreeDone, _onCashfreeError);
   }
 
   @override
   void dispose() {
-    _rzp.clear();
+    _amount.dispose();
     super.dispose();
   }
 
   double get _amt => double.tryParse(_amount.text.trim()) ?? 0;
 
+  void _stopBusy() {
+    if (mounted) setState(() => _busy = false);
+  }
+
   Future<void> _payOnline() async {
-    setState(() => _busy = true);
-    try {
-      final o = await context.read<AppState>().api.postJson('/payments/order', {'amount': _amt});
-      _rzp.open({
-        'key': o['keyId'],
-        'order_id': o['orderId'],
-        'amount': ((o['amount'] as num) * 100).round(),
-        'name': 'PMAY Registration',
-        'description': 'Booking amount',
-        'prefill': {'contact': o['phone'], 'email': o['email']},
-      });
-    } catch (e) {
-      setState(() => _busy = false);
-      if (mounted) toast(context, e.toString(), error: true);
-    }
-  }
-
-  Future<void> _onSuccess(PaymentSuccessResponse r) async {
-    try {
-      final s = context.read<AppState>();
-      await s.api.postJson('/payments/verify', {
-        'razorpay_order_id': r.orderId,
-        'razorpay_payment_id': r.paymentId,
-        'razorpay_signature': r.signature,
-      });
-      await s.refresh();
-      if (mounted) {
-        toast(context, 'Payment successful');
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) toast(context, 'Payment received but verification failed: $e', error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _submitOffline() async {
-    if (_receipt == null) {
-      toast(context, 'Choose your payment receipt first', error: true);
+    if (_amt <= 0) {
+      toast(context, 'Enter a valid amount', error: true);
       return;
     }
     setState(() => _busy = true);
     try {
+      final o = await context.read<AppState>().api.postJson('/payments/order', {'amount': _amt});
+      final env = '${o['environment']}' == 'production' ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+      final session = CFSessionBuilder()
+          .setEnvironment(env)
+          .setOrderId('${o['orderId']}')
+          .setPaymentSessionId('${o['paymentSessionId']}')
+          .build();
+      _cf.doPayment(CFWebCheckoutPaymentBuilder().setSession(session).build());
+    } on CFException catch (e) {
+      _stopBusy();
+      if (mounted) toast(context, e.message, error: true);
+    } catch (e) {
+      _stopBusy();
+      if (mounted) toast(context, e.toString(), error: true);
+    }
+  }
+
+  /// Cashfree says the checkout finished -> ask OUR server for the real result (it checks with Cashfree).
+  Future<void> _onCashfreeDone(String orderId) async {
+    try {
       final s = context.read<AppState>();
-      await s.api.postMultipart('/payments/offline', fields: {'amount': _amt.toStringAsFixed(0)}, files: {'receipt': _receipt!});
-      await s.refresh();
-      if (mounted) {
-        toast(context, 'Submitted. Admin will verify your payment.');
-        Navigator.pop(context);
+      final r = await s.api.postJson('/payments/verify', {'order_id': orderId});
+      final status = '${r['status']}';
+      if (status == 'paid') {
+        await s.refresh();
+        if (mounted) {
+          toast(context, 'Payment successful');
+          Navigator.pop(context);
+        }
+      } else if (mounted) {
+        toast(
+            context,
+            status == 'failed'
+                ? 'Payment failed. Please try again.'
+                : 'Payment not completed yet. If money was debited, it will be confirmed automatically.',
+            error: true);
       }
     } catch (e) {
-      if (mounted) toast(context, e.toString(), error: true);
+      if (mounted) toast(context, 'Could not confirm payment: $e', error: true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _stopBusy();
     }
+  }
+
+  void _onCashfreeError(CFErrorResponse err, String orderId) {
+    _stopBusy();
+    if (mounted) toast(context, err.getMessage() ?? 'Payment cancelled or failed', error: true);
   }
 
   @override
@@ -107,25 +111,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
         const SizedBox(height: 14),
         TextField(
             controller: _amount,
+            enabled: !_busy,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'Amount (Rs.)', prefixText: 'Rs. ')),
         const SizedBox(height: 14),
         FilledButton.icon(
-            onPressed: _busy ? null : _payOnline, icon: const Icon(Icons.payment), label: const Text('Pay Online (Razorpay)')),
+            onPressed: _busy ? null : _payOnline,
+            icon: _busy
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.payment),
+            label: const Text('Pay Online (UPI / Card / Net Banking)')),
+        const SizedBox(height: 10),
+        const Text('You will be taken to the secure Cashfree payment page. Your booking is confirmed automatically once the payment succeeds.',
+            style: TextStyle(fontSize: 12.5, color: Colors.black54)),
         const Divider(height: 40),
-        Text('Or pay by bank transfer / cheque', style: Theme.of(context).textTheme.titleMedium),
+        Text('Want to pay by cash / cheque / DD?', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        Text('Bank: ${p['bank_name'] ?? '-'}\nBranch: ${p['bank_branch'] ?? '-'}\n'
-            'Account No: ${p['bank_account_no'] ?? 'Contact admin'}\nIFSC: ${p['bank_ifsc'] ?? 'Contact admin'}'),
-        const SizedBox(height: 12),
-        UploadTile(
-            label: 'Payment receipt',
-            path: _receipt,
-            onPick: () async {
-              final f = await pickDoc();
-              if (f != null) setState(() => _receipt = f);
-            }),
-        OutlinedButton(onPressed: _busy ? null : _submitOffline, child: const Text('Submit for verification')),
+        const Text('Please visit our office. Our admin will collect the payment and update your status.'),
       ]),
     );
   }
