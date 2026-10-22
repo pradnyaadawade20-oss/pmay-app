@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 const kBlue = Color(0xFF1649A8);
@@ -36,22 +38,73 @@ String fullName(Map a) {
   return n.isEmpty ? '-' : n;
 }
 
-/// Messages (success and errors) appear in the bottom-right corner; on narrow screens they span the bottom.
+OverlayEntry? _toastEntry;
+Timer? _toastTimer;
+
+void _removeToast() {
+  _toastTimer?.cancel();
+  _toastTimer = null;
+  _toastEntry?.remove();
+  _toastEntry = null;
+}
+
+/// Messages (success and errors) appear in the bottom-right corner, ABOVE dialogs and popups
+/// (a normal SnackBar is drawn under the dialog's dark barrier and is hard to read). On narrow
+/// screens the message spans the bottom. It disappears by itself, or when its X is tapped.
 void toast(BuildContext c, String m, {bool error = false}) {
-  const boxW = 380.0, gap = 24.0;
+  final overlay = Overlay.maybeOf(c, rootOverlay: true);
+  if (overlay == null) {
+    ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m), backgroundColor: error ? kRed : kInk));
+    return;
+  }
+  _removeToast(); // replace the previous message instead of stacking them
   final w = MediaQuery.of(c).size.width;
-  final margin = w > boxW + 2 * gap
-      ? EdgeInsets.only(left: w - boxW - gap, right: gap, bottom: gap)
-      : const EdgeInsets.all(12);
-  final sm = ScaffoldMessenger.of(c);
-  sm.hideCurrentSnackBar(); // replace the previous message instead of queueing them
-  sm.showSnackBar(SnackBar(
-    behavior: SnackBarBehavior.floating,
-    margin: margin,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    content: Text(m),
-    backgroundColor: error ? kRed : kInk,
-  ));
+  final boxW = math.min(420.0, w - 24);
+  final bg = error ? const Color(0xFFB3261E) : kInk;
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => Positioned(
+      right: 16,
+      bottom: 16,
+      width: boxW,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 180),
+        builder: (context, t, child) => Opacity(opacity: t, child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child)),
+        child: Material(
+          color: bg,
+          elevation: 12,
+          borderRadius: BorderRadius.circular(12),
+          shadowColor: Colors.black,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(error ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(m, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600, height: 1.35, decoration: TextDecoration.none)),
+              ),
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  if (identical(_toastEntry, entry)) _removeToast();
+                },
+                child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.close_rounded, color: Colors.white70, size: 18)),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    ),
+  );
+  overlay.insert(entry);
+  _toastEntry = entry;
+  _toastTimer = Timer(Duration(seconds: error ? 7 : 4), () {
+    if (identical(_toastEntry, entry)) _removeToast();
+  });
 }
 
 /// Status pill with a small dot.
