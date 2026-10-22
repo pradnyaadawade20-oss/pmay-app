@@ -31,7 +31,7 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
         _pays = List.from(r['payments'] ?? []);
         _loan = r['loan'] is Map ? Map<String, dynamic>.from(r['loan']) : null;
         _unit = r['unit'] is Map ? Map<String, dynamic>.from(r['unit']) : null;
-        _extra = _laterDocs(_a!, _loan);
+        _extra = _laterDocs(_a!, _loan, r['uploads']);
         _docFut = {for (final k in [...docKinds.keys, ..._extra.keys]) k: Api.i.fileBytes(Ep.doc(widget.id, k))};
       });
     }).catchError((e) {
@@ -129,9 +129,19 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
       );
 
   /// Documents uploaded after registration (agreement, bank, loan, mortgage) that exist for this applicant.
-  static Map<String, String> _laterDocs(Map<String, dynamic> a, Map<String, dynamic>? loan) {
+  static Map<String, String> _laterDocs(Map<String, dynamic> a, Map<String, dynamic>? loan, [Object? uploads]) {
     final m = <String, String>{};
     if (a['agreement_receipt_path'] != null) m['agreement_signed'] = 'Signed agreement';
+    // extra files of the same signed agreement (agreement_signed_2, _3 ...)
+    final extra = <String>[];
+    for (final u in (uploads as List?) ?? const []) {
+      final t = u is Map ? '${u['upload_type']}' : '';
+      if (RegExp(r'^agreement_signed_\d+$').hasMatch(t) && !extra.contains(t)) extra.add(t);
+    }
+    extra.sort((x, y) => (int.tryParse(x.split('_').last) ?? 0).compareTo(int.tryParse(y.split('_').last) ?? 0));
+    for (final t in extra) {
+      m[t] = 'Signed agreement (${t.split('_').last})';
+    }
     if (loan != null) {
       const l = {
         'upi_statement': 'UPI statement',

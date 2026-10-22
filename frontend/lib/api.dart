@@ -148,17 +148,29 @@ class Api {
 
   /// fields: text fields, files: {formFieldName: localFilePath}
   Future<Map<String, dynamic>> postMultipart(String path,
-      {Map<String, String> fields = const {}, Map<String, String> files = const {}}) async {
+      {Map<String, String> fields = const {},
+      Map<String, String> files = const {},
+      Map<String, List<String>> fileLists = const {}}) async {
     if (kMock) return _Mock.handle('POST', path, fields);
     final req = http.MultipartRequest('POST', Uri.parse('$base$path'))
       ..headers.addAll(_auth)
       ..fields.addAll(fields);
-    for (final e in files.entries) {
-      if (WebFiles.isWeb(e.value)) {
-        final bytes = WebFiles.get(e.value)!;
-        req.files.add(http.MultipartFile.fromBytes(e.key, bytes, filename: e.value.split('/').last));
+    Future<void> addFile(String field, String value) async {
+      if (WebFiles.isWeb(value)) {
+        final bytes = WebFiles.get(value)!;
+        req.files.add(http.MultipartFile.fromBytes(field, bytes, filename: value.split('/').last));
       } else {
-        req.files.add(await http.MultipartFile.fromPath(e.key, e.value));
+        req.files.add(await http.MultipartFile.fromPath(field, value));
+      }
+    }
+
+    for (final e in files.entries) {
+      await addFile(e.key, e.value);
+    }
+    // several files under the same field name (e.g. signed agreement = allotment letter + agreement)
+    for (final e in fileLists.entries) {
+      for (final v in e.value) {
+        await addFile(e.key, v);
       }
     }
     final streamed = await req.send().timeout(const Duration(minutes: 3));
@@ -171,4 +183,4 @@ class Api {
     if (r.statusCode >= 400) throw ApiException('Could not load file', r.statusCode);
     return r.bodyBytes;
   }
-} 
+}

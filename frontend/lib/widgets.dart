@@ -24,6 +24,22 @@ Future<String?> pickDoc() async {
   return f.path;
 }
 
+/// Picks several jpg/png/pdf files at once and returns their local paths (empty when cancelled).
+Future<List<String>> pickDocs() async {
+  final r = await FilePicker.platform.pickFiles(
+      type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'], allowMultiple: true, withData: kIsWeb);
+  if (r == null) return [];
+  final out = <String>[];
+  for (final f in r.files) {
+    if (kIsWeb) {
+      if (f.bytes != null) out.add(WebFiles.put(f.name, f.bytes!));
+    } else if (f.path != null) {
+      out.add(f.path!);
+    }
+  }
+  return out;
+}
+
 class UploadTile extends StatelessWidget {
   final String label;
   final String? path; // locally picked

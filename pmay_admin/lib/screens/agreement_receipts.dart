@@ -243,7 +243,7 @@ class AgreementReceiptDialog extends StatefulWidget {
 class _AgreementReceiptDialogState extends State<AgreementReceiptDialog> {
   Map<String, dynamic>? _a;
   String? _err;
-  Uint8List? _doc;
+  List<Uint8List> _docs = [];
   bool _busy = false;
   final _reason = TextEditingController();
 
@@ -263,17 +263,26 @@ class _AgreementReceiptDialogState extends State<AgreementReceiptDialog> {
     try {
       final r = await Api.i.get(Ep.one(widget.id));
       final a = Map<String, dynamic>.from(r['applicant'] ?? {});
-      Uint8List? bytes;
-      if (a['agreement_receipt_path'] != null) {
+      // every file of the signed agreement: agreement_signed, agreement_signed_2, _3 ...
+      final kinds = <String>{};
+      for (final u in (r['uploads'] as List?) ?? const []) {
+        final t = u is Map ? '${u['upload_type']}' : '';
+        if (RegExp(r'^agreement_signed(_\d+)?$').hasMatch(t)) kinds.add(t);
+      }
+      if (kinds.isEmpty && a['agreement_receipt_path'] != null) kinds.add('agreement_signed');
+      int n(String k) => int.tryParse(k.split('_').last) ?? 1;
+      final ordered = kinds.toList()..sort((x, y) => n(x).compareTo(n(y)));
+      final docs = <Uint8List>[];
+      for (final k in ordered) {
         try {
-          bytes = await Api.i.fileBytes(Ep.doc(widget.id, 'agreement_signed'));
+          docs.add(Uint8List.fromList(await Api.i.fileBytes(Ep.doc(widget.id, k))));
         } catch (_) {}
       }
       if (mounted) {
         setState(() {
-        _a = a;
-        _doc = bytes;
-      });
+          _a = a;
+          _docs = docs;
+        });
       }
     } catch (e) {
       if (mounted) setState(() => _err = e.toString());
@@ -305,9 +314,7 @@ class _AgreementReceiptDialogState extends State<AgreementReceiptDialog> {
         TextSpan(text: v, style: const TextStyle(color: kInk, fontWeight: FontWeight.w600)),
       ]), style: const TextStyle(fontSize: 14.5));
 
-  Widget _docView() {
-    final b = _doc;
-    if (b == null) return const Text('No document uploaded', style: TextStyle(fontSize: 16, color: kMuted));
+  Widget _docOne(Uint8List b) {
     final pdf = b.length > 3 && b[0] == 0x25 && b[1] == 0x50;
     if (pdf) {
       return OutlinedButton.icon(onPressed: () => openBytes(b), icon: const Icon(Icons.picture_as_pdf_outlined, size: 18), label: const Text('Open receipt (PDF)'));
@@ -318,6 +325,18 @@ class _AgreementReceiptDialogState extends State<AgreementReceiptDialog> {
         child: Container(color: kBg, constraints: const BoxConstraints(maxHeight: 320), width: double.infinity, child: Image.memory(b, fit: BoxFit.contain)),
       ),
       TextButton.icon(onPressed: () => openBytes(b), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('Open in new tab')),
+    ]);
+  }
+
+  Widget _docView() {
+    if (_docs.isEmpty) return const Text('No document uploaded', style: TextStyle(fontSize: 16, color: kMuted));
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < _docs.length; i++) ...[
+        if (_docs.length > 1)
+          Padding(padding: const EdgeInsets.only(bottom: 6), child: Text('Document ${i + 1} of ${_docs.length}', style: const TextStyle(fontWeight: FontWeight.w700, color: kInk))),
+        _docOne(_docs[i]),
+        const SizedBox(height: 14),
+      ],
     ]);
   }
 

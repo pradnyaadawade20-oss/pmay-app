@@ -40,15 +40,27 @@ class TrackingScreen extends StatefulWidget {
 class _TrackingScreenState extends State<TrackingScreen> {
   bool _busy = false;
 
-  Future<void> _upload(String type) async {
+  /// [multi] lets the user select several files at once (used for the signed agreement:
+  /// signed allotment letter + signed agreement, as images or PDFs).
+  Future<void> _upload(String type, {bool multi = false}) async {
     final s = context.read<AppState>();
-    final f = await pickDoc();
-    if (f == null) return;
+    final List<String> picked;
+    if (multi) {
+      picked = await pickDocs();
+    } else {
+      final f = await pickDoc();
+      picked = f == null ? <String>[] : [f];
+    }
+    if (picked.isEmpty) return;
+    if (picked.length > 10) {
+      toast(context, 'You can upload at most 10 files at once', error: true);
+      return;
+    }
     setState(() => _busy = true);
     try {
-      await s.api.postMultipart('/me/upload', fields: {'type': type}, files: {'file': f});
+      await s.api.postMultipart('/me/upload', fields: {'type': type}, fileLists: {'file': picked});
       await s.refresh();
-      if (mounted) toast(context, 'Uploaded successfully');
+      if (mounted) toast(context, picked.length > 1 ? '${picked.length} documents uploaded successfully' : 'Uploaded successfully');
     } catch (e) {
       if (mounted) toast(context, e.toString(), error: true);
     } finally {
@@ -224,11 +236,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
         return const InfoCard(icon: Icons.home_work, color: Colors.orange, title: 'Awaiting house allotment', message: 'Payment received. A unit will be allotted to you soon.');
       case 'stage_5_agreement':
         return InfoCard(icon: Icons.description, color: Colors.blue, title: 'Sign the agreement',
-            message: a['stage_4_status'] == 'rejected' ? 'Rejected: ${a['stage_4_reason'] ?? ''}. Please upload again.' : 'Download, print, sign and upload the agreement.',
+            message: a['stage_4_status'] == 'rejected' ? 'Rejected: ${a['stage_4_reason'] ?? ''}. Please upload again.' : 'Download, print, sign and upload both the allotment letter and the agreement. Select all files together (images or PDF).',
             children: [
               _docRow('Allotment letter', 'allotment'),
               _docRow('Agreement for sale', 'agreement'),
-              FilledButton.icon(onPressed: _busy ? null : () => _upload('agreement_signed'), icon: const Icon(Icons.upload_file), label: const Text('Upload signed agreement')),
+              FilledButton.icon(onPressed: _busy ? null : () => _upload('agreement_signed', multi: true), icon: const Icon(Icons.upload_file), label: const Text('Upload signed agreement')),
             ]);
       case 'stage_6_agreement_receipt':
         return const InfoCard(icon: Icons.hourglass_top, color: Colors.orange, title: 'Agreement under review', message: 'Admin is verifying your signed agreement.');
