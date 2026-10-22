@@ -10,6 +10,20 @@ class AppState extends ChangeNotifier {
   bool guest = false; // Get Started -> home without login
   bool get inApp => loggedIn || guest;
 
+  /// Bank documents the user has picked but not uploaded yet (type -> local file path). Kept here, not in the
+  /// card's own State, so they are not lost when the card scrolls off screen or the tab is switched.
+  final Map<String, String> bankDocPicks = {};
+
+  void pickBankDoc(String type, String path) {
+    bankDocPicks[type] = path;
+    notifyListeners();
+  }
+
+  void clearBankDocPicks() {
+    bankDocPicks.clear();
+    notifyListeners();
+  }
+
   /// Set to a tab index to make MainShell jump to that tab (e.g. 1 = Tracking after OTP verify).
   int? pendingTab;
 
@@ -168,6 +182,7 @@ class AppState extends ChangeNotifier {
     notifications = [];
     unread = 0;
     verifyNoteRead = false;
+    bankDocPicks.clear();
     notifyListeners();
   }
 }

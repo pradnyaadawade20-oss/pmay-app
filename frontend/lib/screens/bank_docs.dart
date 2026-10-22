@@ -17,15 +17,14 @@ class _BankDocsCardState extends State<BankDocsCard> {
     'itr_year3': ('ITR Year 3', 'itr_year3_path'),
     'bank_statement': ('Bank Statement (6 months)', 'bank_statement_path'),
   };
-  final _picked = <String, String>{};
   bool _busy = false;
 
   Future<void> _submit() async {
     setState(() => _busy = true);
     try {
       final s = context.read<AppState>();
-      await s.api.postMultipart('/me/bank-documents', files: _picked);
-      _picked.clear();
+      await s.api.postMultipart('/me/bank-documents', files: Map<String, String>.from(s.bankDocPicks));
+      s.clearBankDocPicks();
       await s.refresh();
       if (mounted) toast(context, 'Documents uploaded');
     } catch (e) {
@@ -37,7 +36,9 @@ class _BankDocsCardState extends State<BankDocsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final loan = context.watch<AppState>().loan;
+    final state = context.watch<AppState>();
+    final picked = state.bankDocPicks; // survives scrolling and tab switches (see AppState)
+    final loan = state.loan;
     final status = loan?['loan_status'];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (status == 'rejected')
@@ -49,17 +50,17 @@ class _BankDocsCardState extends State<BankDocsCard> {
       for (final e in _docs.entries)
         UploadTile(
             label: e.value.$1,
-            path: _picked[e.key],
+            path: picked[e.key],
             uploaded: loan?[e.value.$2] != null && status != 'rejected',
             onPick: () async {
               final f = await pickDoc();
-              if (f != null) setState(() => _picked[e.key] = f);
+              if (f != null) state.pickBankDoc(e.key, f);
             }),
       const SizedBox(height: 8),
       SizedBox(
           width: double.infinity,
           child: FilledButton(
-              onPressed: _busy || _picked.isEmpty ? null : _submit, child: const Text('Upload selected documents'))),
+              onPressed: _busy || picked.isEmpty ? null : _submit, child: const Text('Upload selected documents'))),
       if (loan != null && status == 'pending')
         const Padding(
             padding: EdgeInsets.only(top: 8),
