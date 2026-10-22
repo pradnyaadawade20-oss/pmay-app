@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -504,7 +505,8 @@ func (s *Server) dbUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 	t, ok := dbTables[r.PathValue("table")]
-	if !ok || t.readOnly {
+	// auth_users cannot be edited here, but a login (and its applicant data) can be deleted, with the safeguards below
+	if !ok || (t.readOnly && r.PathValue("table") != "auth_users") {
 		fail(w, 403, "Table is read-only")
 		return
 	}
@@ -516,7 +518,46 @@ func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	var removeDirs []string // upload folders to delete from disk after the commit
 	switch r.PathValue("table") {
+	case "auth_users":
+		if id == claimsOf(r).Sub {
+			fail(w, 409, "You cannot delete your own account")
+			return
+		}
+		var admin int
+		_ = tx.QueryRowContext(ctx, `SELECT count(*) FROM user_roles WHERE user_id::text=$1`, id).Scan(&admin)
+		if admin > 0 {
+			fail(w, 409, "This user has an admin role. Remove it in User Management first.")
+			return
+		}
+		rows, qerr := tx.QueryContext(ctx, `SELECT id::text FROM applicants WHERE user_id::text=$1`, id)
+		if qerr != nil {
+			fail(w, 500, "DB error")
+			return
+		}
+		var appIDs []string
+		for rows.Next() {
+			var a string
+			if rows.Scan(&a) == nil {
+				appIDs = append(appIDs, a)
+			}
+		}
+		rows.Close()
+		for _, a := range appIDs { // free the unit, drop stored files, then the application and finally the login
+			_, _ = tx.ExecContext(ctx, `UPDATE units SET status='available', allocated_to=NULL, allocated_at=NULL WHERE allocated_to::text=$1`, a)
+			_, _ = tx.ExecContext(ctx, `DELETE FROM file_blobs WHERE path LIKE $1`, a+"/%")
+			removeDirs = append(removeDirs, filepath.Join(s.cfg.UploadDir, a))
+		}
+		if _, err = tx.ExecContext(ctx, `DELETE FROM applicants WHERE user_id::text=$1`, id); err == nil {
+			var res sql.Result
+			if res, err = tx.ExecContext(ctx, `DELETE FROM users WHERE id::text=$1`, id); err == nil {
+				if n, _ := res.RowsAffected(); n == 0 {
+					fail(w, 404, "User not found")
+					return
+				}
+			}
+		}
 	case "applicants":
 		// free any unit, then drop the login too so the person can re-register
 		_, _ = tx.ExecContext(ctx, `UPDATE units SET status='available', allocated_to=NULL, allocated_at=NULL WHERE allocated_to::text=$1`, id)
@@ -548,6 +589,9 @@ func (s *Server) dbDelete(w http.ResponseWriter, r *http.Request) {
 	if err != nil || tx.Commit() != nil {
 		fail(w, 409, "Row cannot be deleted (it is referenced elsewhere)")
 		return
+	}
+	for _, d := range removeDirs {
+		_ = os.RemoveAll(d)
 	}
 	s.audit(ctx, claimsOf(r).Sub, "db_delete", t.sqlName, "", M{"id": id})
 	writeJSON(w, 200, M{"success": true})
