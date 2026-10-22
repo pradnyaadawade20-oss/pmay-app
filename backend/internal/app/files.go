@@ -19,6 +19,9 @@ func settingKey(t string) string {
 	if strings.HasPrefix(t, "itr_") {
 		return "itr"
 	}
+	if strings.HasPrefix(t, "agreement_signed_") { // extra pages of a multi-file agreement
+		return "agreement_signed"
+	}
 	return t
 }
 
@@ -106,7 +109,7 @@ func (s *Server) serveStored(w http.ResponseWriter, r *http.Request, rel string)
 
 // dropBlobs removes stored copies under a path prefix (e.g. an applicant folder) after a failed or deleted upload.
 func (s *Server) dropBlobs(ctx context.Context, prefix string) {
-	_, _ = s.db.ExecContext(ctx, `DELETE FROM file_blobs WHERE path LIKE $1`, prefix+"%");
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM file_blobs WHERE path LIKE $1`, prefix+"%")
 }
 
 // GET /api/files/{path...}  -> owner (first path segment == own applicant id) or any admin role.

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -50,11 +51,18 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utype := r.FormValue("type")
-	if len(r.MultipartForm.File["file"]) == 0 {
+	files := r.MultipartForm.File["file"]
+	if len(files) == 0 {
 		fail(w, 400, "File is required")
 		return
 	}
-	hdr := r.MultipartForm.File["file"][0]
+	if utype != "agreement_signed" {
+		files = files[:1] // only the signed agreement (allotment letter + agreement) may have several files
+	}
+	if len(files) > 10 {
+		fail(w, 400, "At most 10 files can be uploaded at once")
+		return
+	}
 	id, stage := app["id"].(string), app["registration_stage"].(string)
 
 	var from, set string
@@ -76,22 +84,67 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 		fail(w, 409, "This upload is not allowed at your current stage")
 		return
 	}
-	rel, err := s.saveFile(r.Context(), id, utype, hdr)
-	if err != nil {
-		fail(w, 400, err.Error())
-		return
+	// The first file keeps the plain type (agreement_signed); extra files of a multi-file agreement are
+	// stored as agreement_signed_2, agreement_signed_3 ... so the admin panel can show every page.
+	type savedFile struct {
+		kind, rel, name string
+		size            int64
+	}
+	var saved []savedFile
+	discard := func(list []string) {
+		for _, p := range list {
+			_ = os.Remove(filepath.Join(s.cfg.UploadDir, p))
+			s.dropBlobs(r.Context(), p)
+		}
+	}
+	var newPaths []string
+	for i, hdr := range files {
+		kind := utype
+		if i > 0 {
+			kind = fmt.Sprintf("%s_%d", utype, i+1)
+		}
+		rel, err := s.saveFile(r.Context(), id, kind, hdr)
+		if err != nil {
+			discard(newPaths)
+			fail(w, 400, err.Error())
+			return
+		}
+		newPaths = append(newPaths, rel)
+		saved = append(saved, savedFile{kind, rel, hdr.Filename, hdr.Size})
 	}
 	tx, _ := s.db.BeginTx(r.Context(), nil)
 	defer tx.Rollback()
-	_, e1 := tx.ExecContext(r.Context(), `INSERT INTO uploads(applicant_id,upload_type,file_name,file_path,file_size,uploaded_by) VALUES ($1,$2,$3,$4,$5,$6)`,
-		id, utype, hdr.Filename, rel, hdr.Size, claimsOf(r).Sub)
-	_, e2 := tx.ExecContext(r.Context(), `UPDATE applicants SET `+set+`, updated_at=now() WHERE id=$1`, id, rel)
-	if e1 != nil || e2 != nil || tx.Commit() != nil {
-		_ = os.Remove(filepath.Join(s.cfg.UploadDir, rel))
-		s.dropBlobs(r.Context(), rel)
+	var oldPaths []string
+	failed := false
+	if utype == "agreement_signed" { // a resubmission replaces the extra pages of the earlier submission
+		rows, err := tx.QueryContext(r.Context(), `DELETE FROM uploads WHERE applicant_id=$1 AND upload_type ~ '^agreement_signed_[0-9]+$' RETURNING file_path`, id)
+		if err != nil {
+			failed = true
+		} else {
+			for rows.Next() {
+				var p string
+				if rows.Scan(&p) == nil {
+					oldPaths = append(oldPaths, p)
+				}
+			}
+			rows.Close()
+		}
+	}
+	for _, f := range saved {
+		if _, err := tx.ExecContext(r.Context(), `INSERT INTO uploads(applicant_id,upload_type,file_name,file_path,file_size,uploaded_by) VALUES ($1,$2,$3,$4,$5,$6)`,
+			id, f.kind, f.name, f.rel, f.size, claimsOf(r).Sub); err != nil {
+			failed = true
+		}
+	}
+	if _, err := tx.ExecContext(r.Context(), `UPDATE applicants SET `+set+`, updated_at=now() WHERE id=$1`, id, saved[0].rel); err != nil {
+		failed = true
+	}
+	if failed || tx.Commit() != nil {
+		discard(newPaths)
 		fail(w, 500, "Failed to save upload")
 		return
 	}
+	discard(oldPaths)
 	switch utype {
 	case "agreement_signed":
 		s.notify(r.Context(), id, "agreement_submitted", "Agreement received", "Your signed agreement is under review.")
