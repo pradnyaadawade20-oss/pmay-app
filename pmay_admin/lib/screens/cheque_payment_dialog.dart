@@ -7,18 +7,19 @@ import '../web_open.dart';
 /// "Record Cheque Payment": the admin uploads a photo of the cheque as payment proof. The payment is saved
 /// (kept for future reference, visible in Payment Management) and the applicant moves on to allotment.
 /// Returns true when a payment was recorded.
-Future<bool?> showChequePaymentDialog(BuildContext context) =>
-    showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => const ChequePaymentDialog());
+Future<bool?> showChequePaymentDialog(BuildContext context, {String? applicantId}) =>
+    showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => ChequePaymentDialog(applicantId: applicantId));
 
 class ChequePaymentDialog extends StatefulWidget {
-  const ChequePaymentDialog({super.key});
+  final String? applicantId; // pre-selects the applicant when opened from their row
+  const ChequePaymentDialog({super.key, this.applicantId});
   @override
   State<ChequePaymentDialog> createState() => _ChequePaymentDialogState();
 }
 
 class _ChequePaymentDialogState extends State<ChequePaymentDialog> {
   List<Map<String, dynamic>> _people = [];
-  String? _id;
+  late String? _id = widget.applicantId;
   bool _loading = true, _busy = false;
   String? _err;
   final _amount = TextEditingController(text: '25000');
@@ -35,6 +36,7 @@ class _ChequePaymentDialogState extends State<ChequePaymentDialog> {
       if (!mounted) return;
       setState(() {
         _people = List<Map<String, dynamic>>.from(r['applicants'] ?? []);
+        if (_id != null && !_people.any((p) => '${p['id']}' == _id)) _id = null;
         _loading = false;
       });
     }).catchError((e) {

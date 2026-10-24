@@ -73,6 +73,7 @@ class PaymentManagementPage extends StatefulWidget {
 
 class _PaymentManagementPageState extends State<PaymentManagementPage> {
   List<Map<String, dynamic>> _all = [];
+  List<Map<String, dynamic>> _awaiting = []; // applicants at the payment stage (the user app only shows "Awaiting Payment")
   bool _loading = true;
   String? _err;
   int _tab = 1; // 0 awaiting, 1 all payments, 2 balances, 3 charts
@@ -109,6 +110,12 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
         r = await Api.i.get(Ep.payments(''));
       }
       _all = List<Map<String, dynamic>>.from(r['payments'] ?? []);
+      try {
+        final a = await Api.i.get(Ep.list('', 'stage_3_payment'));
+        _awaiting = List<Map<String, dynamic>>.from(a['applicants'] ?? []);
+      } catch (_) {
+        _awaiting = [];
+      }
     } catch (e) {
       _err = e.toString();
     }
@@ -119,19 +126,20 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
   Set<String> get _applicants => _all.map(_uid).toSet();
   num get _expected => _applicants.length * kUnitPrice;
   num get _collected => _all.where(_paid).fold<num>(0, (a, p) => a + _amt(p));
-  int get _pendingN => _all.where(_pend).length;
+  int get _pendingN => _all.where((p) => _pend(p) && _method(p).toLowerCase() != 'online').length;
   int get _failedN => _all.where(_failed).length;
 
   // ---------- stat cards ----------
   Widget _stat(IconData icon, String label, String value, String sub, Color c, {Color? valueColor}) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border(left: BorderSide(color: c, width: 4), top: const BorderSide(color: kLine), right: const BorderSide(color: kLine), bottom: const BorderSide(color: kLine)),
-          boxShadow: kShadow,
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: kLine), boxShadow: kShadow),
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(width: 4, color: c), // coloured accent on the left edge
+          Expanded(
+           child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 20, 18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
             Icon(icon, size: 17, color: kMuted),
             const SizedBox(width: 8),
@@ -141,7 +149,11 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
           Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: valueColor ?? kInk)),
           const SizedBox(height: 2),
           Text(sub, style: const TextStyle(fontSize: 12, color: kMuted)),
-        ]),
+            ]),
+           ),
+          ),
+         ]),
+        ),
       );
 
   Widget _stats(double w) {
@@ -187,7 +199,7 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
   }
 
   Widget _tabsRow() => Wrap(spacing: 10, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        _tabBtn(0, 'Awaiting Payment ($_pendingN)', icon: Icons.schedule_rounded),
+        _tabBtn(0, 'Awaiting Payment (${_awaiting.length})', icon: Icons.schedule_rounded),
         _tabBtn(1, 'All Payments'),
         _tabBtn(2, 'Applicant Balances'),
         _tabBtn(3, 'Charts', icon: Icons.bar_chart_rounded),
@@ -208,6 +220,55 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
           style: OutlinedButton.styleFrom(foregroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
         ),
       ]);
+
+  // ---------- Awaiting Payment tab ----------
+  Widget _awaitingTab() {
+    Future<void> record(String? id) async {
+      final saved = await showChequePaymentDialog(context, applicantId: id);
+      if (saved == true) _load();
+    }
+
+    final people = _awaiting;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _section(
+        'Applicants awaiting payment',
+        'Documents are verified. Record the payment (cheque photo) when it is received - the applicant then moves to allotment.',
+        people.isEmpty
+            ? const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: EmptyState(icon: Icons.check_circle_outline_rounded, title: 'All caught up', sub: 'No applicant is waiting for payment'))
+            : Column(children: [
+                for (final a in people)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: kLine))),
+                    child: Row(children: [
+                      Avatar('${a['first_name'] ?? ''} ${a['last_name'] ?? ''}', size: 38),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${a['first_name'] ?? ''} ${a['last_name'] ?? ''}'.trim(), style: const TextStyle(fontWeight: FontWeight.w700, color: kInk)),
+                          Text('${a['unique_id'] ?? ''}  -  ${a['phone'] ?? ''}', style: const TextStyle(fontSize: 12.5, color: kMuted)),
+                        ]),
+                      ),
+                      const Pill('Awaiting payment', kOrange),
+                      const SizedBox(width: 12),
+                      if (Api.i.canPayments)
+                        FilledButton.icon(
+                          onPressed: () => record('${a['id']}'),
+                          icon: const Icon(Icons.add_card_rounded, size: 18),
+                          label: const Text('Record cheque'),
+                        ),
+                    ]),
+                  ),
+              ]),
+      ),
+      if (_pendingN > 0) ...[
+        const SizedBox(height: 20),
+        const Text('Payments to verify', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kInk)),
+        const SizedBox(height: 10),
+        const SizedBox(height: 620, child: PaymentsPage()), // existing Confirm / Reject screen for offline receipts
+      ],
+    ]);
+  }
 
   // ---------- CSV ----------
   void _exportCsv() {
@@ -564,7 +625,7 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
         _tabsRow(),
         const SizedBox(height: 20),
         switch (_tab) {
-          0 => const SizedBox(height: 620, child: PaymentsPage()), // existing Confirm / Reject screen
+          0 => _awaitingTab(),
           1 => _allPayments(c.maxWidth),
           2 => _balances(),
           _ => _charts(c.maxWidth),
