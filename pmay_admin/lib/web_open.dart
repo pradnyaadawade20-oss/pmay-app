@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:typed_data';
 import 'package:web/web.dart' as web;
@@ -40,4 +41,32 @@ void downloadBytes(String name, Uint8List b, String mime) {
   a.href = web.URL.createObjectURL(blob);
   a.download = name;
   a.click();
+}
+/// Lets the admin choose a photo (JPG/PNG) or PDF from their computer. Returns null if they cancel.
+Future<({String name, Uint8List bytes})?> pickPhotoOrPdf() {
+  final done = Completer<({String name, Uint8List bytes})?>();
+  final input = web.document.createElement('input') as web.HTMLInputElement
+    ..type = 'file'
+    ..accept = 'image/jpeg,image/png,application/pdf';
+  input.addEventListener(
+      'change',
+      ((web.Event _) {
+        final f = input.files?.item(0);
+        if (f == null) {
+          if (!done.isCompleted) done.complete(null);
+          return;
+        }
+        f.arrayBuffer().toDart.then((buf) {
+          if (!done.isCompleted) done.complete((name: f.name, bytes: buf.toDart.asUint8List()));
+        }, onError: (_) {
+          if (!done.isCompleted) done.complete(null);
+        });
+      }).toJS);
+  input.addEventListener(
+      'cancel',
+      ((web.Event _) {
+        if (!done.isCompleted) done.complete(null);
+      }).toJS);
+  input.click();
+  return done.future;
 }

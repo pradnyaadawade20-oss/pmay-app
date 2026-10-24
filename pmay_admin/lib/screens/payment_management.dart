@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
+import 'cheque_payment_dialog.dart';
 import 'payments.dart';
 
 /// Price of one unit per applicant (Rs 25,50,000 = 25.5 L). Change here if it differs.
@@ -190,6 +191,16 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
         _tabBtn(1, 'All Payments'),
         _tabBtn(2, 'Applicant Balances'),
         _tabBtn(3, 'Charts', icon: Icons.bar_chart_rounded),
+        if (Api.i.canPayments)
+          FilledButton.icon(
+            onPressed: () async {
+              final saved = await showChequePaymentDialog(context);
+              if (saved == true) _load();
+            },
+            icon: const Icon(Icons.add_card_rounded, size: 18),
+            label: const Text('Record Cheque Payment'),
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+          ),
         OutlinedButton.icon(
           onPressed: _all.isEmpty ? null : _exportCsv,
           icon: const Icon(Icons.download_rounded, size: 18),

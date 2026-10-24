@@ -21,7 +21,7 @@ func TestRoutesRegistered(t *testing.T) {
 		{"GET", "/api/admin/applicants/x/documents/passport_photo"},
 		{"POST", "/api/admin/applicants/x/review"}, {"POST", "/api/admin/applicants/x/agreement-review"},
 		{"POST", "/api/admin/applicants/x/bank-review"}, {"POST", "/api/admin/applicants/x/stage"},
-		{"POST", "/api/admin/applicants/x/send-otp"}, {"POST", "/api/admin/applicants/x/verify-otp"}, {"POST", "/api/admin/applicants/x/verify-contact"},
+		{"POST", "/api/admin/applicants/x/send-otp"}, {"POST", "/api/admin/applicants/x/verify-otp"}, {"POST", "/api/admin/applicants/x/verify-contact"}, {"POST", "/api/admin/applicants/x/cheque"},
 		{"GET", "/api/admin/units"}, {"GET", "/api/admin/units/eligible-applicants"}, {"POST", "/api/admin/units/x/allot"},
 		{"GET", "/api/admin/payments"}, {"POST", "/api/admin/payments/x/confirm"}, {"GET", "/api/admin/payments/x/receipt"},
 		{"GET", "/api/admin/document-settings"}, {"POST", "/api/admin/document-settings/x"},

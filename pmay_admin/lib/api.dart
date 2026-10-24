@@ -37,6 +37,7 @@ class Ep {
   static String payments(String status) => '/admin/payments?status=$status';
   static String payReceipt(String id) => '/admin/payments/$id/receipt'; // file bytes (image / PDF) of the uploaded receipt
   static String payAct(String id, String act) => '/admin/payments/$id/$act'; // confirm | reject
+  static String cheque(String id) => '/admin/applicants/$id/cheque'; // POST multipart {file, amount, cheque_number, bank, note}: records a cheque payment with its photo
 }
 
 /// Users with any of these roles may log in to the admin panel (what they can do is limited per role, see Api.can*).
@@ -102,6 +103,27 @@ class Api {
     final r = method == 'GET'
         ? await http.get(uri, headers: _h)
         : await http.post(uri, headers: _h, body: jsonEncode(body ?? {}));
+    Map<String, dynamic> j;
+    try {
+      j = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException('Server error (${r.statusCode})', r.statusCode);
+    }
+    if (r.statusCode == 401 && token != null) onUnauthorized?.call();
+    if (r.statusCode >= 400 || j['success'] == false) {
+      throw ApiException('${j['error'] ?? 'Something went wrong'}', r.statusCode);
+    }
+    return j;
+  }
+
+  /// Uploads one file (plus text fields) as multipart/form-data, e.g. the photo of a cheque.
+  Future<Map<String, dynamic>> postFile(String path,
+      {required Map<String, String> fields, required String field, required String filename, required Uint8List bytes}) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$base$path'));
+    if (token != null) req.headers['Authorization'] = 'Bearer $token';
+    req.fields.addAll(fields);
+    req.files.add(http.MultipartFile.fromBytes(field, bytes, filename: filename));
+    final r = await http.Response.fromStream(await req.send().timeout(const Duration(minutes: 2)));
     Map<String, dynamic> j;
     try {
       j = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../api.dart' show kMock;
 import '../doc_actions.dart';
@@ -13,7 +12,6 @@ import 'apply.dart';
 import 'bank_docs.dart';
 import 'login.dart';
 import 'otp.dart';
-import 'payment.dart';
 
 /// Full page version (AppBar + tracking body) – used where it is pushed as a route.
 class DashboardScreen extends StatelessWidget {
@@ -128,61 +126,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
             label: const Text('Share')),
       ]);
 
-  // ---------- payment info boxes ----------
-  String _money(dynamic v, num fallback) {
-    final n = num.tryParse('${v ?? ''}') ?? fallback;
-    return '\u20b9${NumberFormat.decimalPattern('en_IN').format(n)}';
-  }
-
-  Widget _kv(String k, String v) => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text.rich(
-            TextSpan(children: [
-              TextSpan(text: '$k: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-              TextSpan(text: v),
-            ]),
-            style: const TextStyle(color: Colors.black87, height: 1.4)),
-      );
-
-  Widget _costBox(AppState s, {required bool pending}) {
-    final p = s.project ?? {};
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: const Color(0xFFF1F3F6), borderRadius: BorderRadius.circular(12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (pending) ...[
-          const Text(
-              'Please visit our office or contact our team to complete your payment. Our admin will process your payment and update your status.',
-              style: TextStyle(color: Colors.black54, height: 1.4)),
-          const SizedBox(height: 8),
-        ],
-        _kv('Total Property Cost', _money(p['total_cost'], 2550000)),
-        const SizedBox(height: 4),
-        _kv('Minimum Booking Amount', _money(p['booking_amount'], 25000)),
-      ]),
-    );
-  }
-
-  Widget _bankBox(AppState s) {
-    final p = s.project ?? {};
-    String v(dynamic x, String d) => (x == null || '$x'.isEmpty) ? d : '$x';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: const Color(0xFFE8F0FB), borderRadius: BorderRadius.circular(12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Bank Details for Payment', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        _kv('Bank', v(p['bank_name'], 'Yes Bank Ltd')),
-        _kv('Branch', v(p['bank_branch'], 'Kalyan Branch')),
-        _kv('Account Name', v(p['bank_account_name'], 'Priyanka Home Realtors Pvt Ltd')),
-        _kv('Account No', v(p['bank_account_no'], '[Contact Admin]')),
-        _kv('IFSC', v(p['bank_ifsc'], '[Contact Admin]')),
-      ]),
-    );
-  }
-
   Widget _stageCard(AppState s) {
     final a = s.applicant!;
     switch (s.stage) {
@@ -207,31 +150,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           ],
         ]);
       case 'stage_3_payment':
-        final pending = s.payments.where((p) => p['payment_status'] == 'pending').isNotEmpty;
-        if (pending) {
-          return InfoCard(
-              icon: Icons.schedule,
-              color: Colors.amber,
-              title: 'Awaiting Payment Processing',
-              message: 'Your payment is being processed by our admin team.',
-              children: [
-                _costBox(s, pending: true),
-                _bankBox(s),
-                const Text('Once payment is confirmed by admin, you will be moved to the next stage automatically.',
-                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Colors.black54)),
-              ]);
-        }
-        return InfoCard(
-            icon: Icons.payment,
-            color: Colors.blue,
-            title: 'Booking Payment',
-            message: 'Documents verified. Pay the booking amount to proceed.',
-            children: [
-              _costBox(s, pending: false),
-              FilledButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentScreen())),
-                  child: const Text('Proceed to payment')),
-            ]);
+        return const InfoCard(icon: Icons.schedule, color: Colors.amber, title: 'Awaiting Payment');
       case 'stage_4_allotment':
         return const InfoCard(icon: Icons.home_work, color: Colors.orange, title: 'Awaiting house allotment', message: 'Payment received. A unit will be allotted to you soon.');
       case 'stage_5_agreement':
