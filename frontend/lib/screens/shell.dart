@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../state.dart';
 import '../widgets.dart';
 import 'home.dart';
-import 'login.dart';
 import 'notifications.dart';
 import 'profile.dart';
 import 'projects.dart';
@@ -71,22 +70,6 @@ class _MainShellState extends State<MainShell> {
               ])
             : Text(_titles[_i]),
         actions: [
-          if (!s.loggedIn)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white70),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  minimumSize: const Size(0, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
-                child: const Text('Login', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              ),
-            ),
           IconButton(
               icon: Badge(smallSize: 9, isLabelVisible: hasUnreadNotifications(s), child: const Icon(Icons.notifications_none)),
               onPressed: () => openNotifications(context)),
