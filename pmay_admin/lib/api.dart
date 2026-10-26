@@ -150,6 +150,8 @@ class Api {
 extension Perms on Api {
   bool _has(List<String> r) => roles.any(r.contains);
   bool get isSuper => _has(['super_admin']);
+  /// Plain 'admin' role (not super admin): sees only the 4 core Quick Actions.
+  bool get isAdminOnly => _has(['admin']) && !_has(['super_admin']);
   bool get canReview => _has(['super_admin', 'admin']); // validation, agreement, bank review
   bool get canPayments => _has(['super_admin', 'admin', 'finance']);
   bool get canAllot => _has(['super_admin', 'admin', 'allotment_manager']);

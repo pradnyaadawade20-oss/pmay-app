@@ -111,8 +111,19 @@ class _DashboardPageState extends State<DashboardPage> {
   void _o(String t, Widget p) => widget.onOpen(t, p);
 
   /// Cards are shown only for what the signed-in role may open (the server enforces the same rules).
-  List<_Action> _actions(Map s) => [
-        _Action(Icons.fact_check_rounded, kOrange, 'Validation Queue', 'Review and verify applicant documents',
+  List<_Action> _actions(Map s) {
+    final all = _allActions(s);
+    if (!Api.i.isAdminOnly) return all;
+    // Admin role: only these 4 cards.
+    const keep = ['Validation Queue', 'Payment Management', 'All Applications', 'Database Tables'];
+    return [...all.where((a) => keep.contains(a.title) && a.title != 'Database Tables'), _dbCard()];
+  }
+
+  _Action _dbCard() => _Action(Icons.table_chart_rounded, kNavy, 'Database Tables', 'View all database tables',
+      () => _o('Database Tables', const DatabaseTablesPage()),
+      linkLabel: 'Admin & Super Admin only');
+
+  List<_Action> _allActions(Map s) => [        _Action(Icons.fact_check_rounded, kOrange, 'Validation Queue', 'Review and verify applicant documents',
             () => _o('Validation Queue', const ValidationQueuePage()),
             count: '${s['pending_review'] ?? 0}', countLabel: 'Pending'),
         if (Api.i.canPayments)

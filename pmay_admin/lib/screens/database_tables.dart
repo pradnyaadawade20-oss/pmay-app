@@ -264,8 +264,8 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
                       )),
                     DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(tooltip: 'View', onPressed: () => _view(_rows[i]), icon: const Icon(Icons.visibility_outlined, size: 18, color: kInk)),
-                      IconButton(tooltip: 'Edit', onPressed: () => _edit(_rows[i]), icon: const Icon(Icons.edit_outlined, size: 18, color: kInk)),
-                      IconButton(tooltip: 'Delete', onPressed: () => _delete([ids[i]]), icon: const Icon(Icons.delete_outline_rounded, size: 18, color: kRed)),
+                      if (Api.i.isSuper) IconButton(tooltip: 'Edit', onPressed: () => _edit(_rows[i]), icon: const Icon(Icons.edit_outlined, size: 18, color: kInk)),
+                      if (Api.i.isSuper) IconButton(tooltip: 'Delete', onPressed: () => _delete([ids[i]]), icon: const Icon(Icons.delete_outline_rounded, size: 18, color: kRed)),
                     ])),
                   ],
                 ),
@@ -305,7 +305,7 @@ class _DatabaseTablesPageState extends State<DatabaseTablesPage> {
                 ),
               ),
               FilledButton(onPressed: _loadRows, child: const Text('Search')),
-              if (_sel.isNotEmpty)
+              if (_sel.isNotEmpty && Api.i.isSuper)
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: kRed),
                   onPressed: () => _delete(_sel.toList()),

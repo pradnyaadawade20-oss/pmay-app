@@ -179,8 +179,8 @@ class Api {
        /// Latest thumb impression recorded by staff at the office (null if none).
      Future<List<int>?> myThumb() async {
        final r = await http.get(Uri.parse('$base/me/thumb'), headers: _auth);
-       if (r.statusCode == 404) return null;
-       if (r.statusCode >= 400) throw ApiException('Could not load thumb impression', r.statusCode);
+       if (r.statusCode == 404 && r.body.contains('No thumb impression')) return null;
+       if (r.statusCode >= 400) throw ApiException('Could not load thumb impression (${r.statusCode}) ${r.body}', r.statusCode);
        return r.bodyBytes;
      }
 

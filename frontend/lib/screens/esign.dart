@@ -15,7 +15,8 @@ class SignResult {
 /// Screen 1: user draws the signature, or (if staff recorded one) uses the thumb impression.
 class SignaturePadPage extends StatefulWidget {
   final Uint8List? thumb;
-  const SignaturePadPage({super.key, this.thumb});
+  final String? thumbNote; // why the thumb option is not shown (debug aid)
+  const SignaturePadPage({super.key, this.thumb, this.thumbNote});
   @override
   State<SignaturePadPage> createState() => _SignaturePadPageState();
 }
@@ -56,6 +57,8 @@ class _SignaturePadPageState extends State<SignaturePadPage> {
             ),
             const SizedBox(height: 12),
             FilledButton(onPressed: _agree ? _done : null, child: const Text('Apply signature')),
+            if (widget.thumb == null && widget.thumbNote != null)
+              Padding(padding: const EdgeInsets.only(top: 16), child: Text(widget.thumbNote!, style: const TextStyle(fontSize: 12, color: Colors.grey))),
             if (widget.thumb != null) ...[
               const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider()),
               Row(children: [
@@ -86,13 +89,20 @@ class _SignaturePadPageState extends State<SignaturePadPage> {
 /// Returns true if the signed PDF was uploaded (caller should refresh AppState).
 Future<bool> eSignAndUpload(BuildContext context, Api api, {required String docKind, required String uploadType}) async {
   Uint8List? thumb;
+  String? thumbNote;
   try {
     final t = await api.myThumb(); // null if staff has not recorded a thumb impression
-    if (t != null) thumb = Uint8List.fromList(t);
-  } catch (_) {}
+    if (t != null) {
+      thumb = Uint8List.fromList(t);
+    } else {
+      thumbNote = 'Thumb: office ne abhi thumb record nahi kiya.';
+    }
+  } catch (e) {
+    thumbNote = 'Thumb error: $e';
+  }
   if (!context.mounted) return false;
 
-  final res = await Navigator.push<SignResult>(context, MaterialPageRoute(builder: (_) => SignaturePadPage(thumb: thumb)));
+  final res = await Navigator.push<SignResult>(context, MaterialPageRoute(builder: (_) => SignaturePadPage(thumb: thumb, thumbNote: thumbNote)));
   if (res == null) return false;
 
   final data = await api.get('/me/documents/$docKind');

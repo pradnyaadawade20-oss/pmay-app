@@ -69,8 +69,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/users/create", s.authed(s.userCreate, "super_admin"))
 	mux.HandleFunc("POST /api/admin/users/{id}/name", s.authed(s.userName, "super_admin"))
 	mux.HandleFunc("POST /api/admin/users/{id}/delete", s.authed(s.userDelete, "super_admin"))
-	mux.HandleFunc("GET /api/admin/db/tables", s.authed(s.dbList, "super_admin"))
-	mux.HandleFunc("GET /api/admin/db/tables/{table}", s.authed(s.dbRows, "super_admin"))
+	mux.HandleFunc("GET /api/admin/db/tables", s.authed(s.dbList, "super_admin", "admin"))
+	mux.HandleFunc("GET /api/admin/db/tables/{table}", s.authed(s.dbRows, "super_admin", "admin"))
 	mux.HandleFunc("POST /api/admin/db/tables/{table}/{id}/update", s.authed(s.dbUpdate, "super_admin"))
 	mux.HandleFunc("POST /api/admin/db/tables/{table}/{id}/delete", s.authed(s.dbDelete, "super_admin"))
 

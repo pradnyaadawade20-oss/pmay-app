@@ -107,7 +107,7 @@ class _AdminShellState extends State<AdminShell> {
               child: Text('MENU', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
             ),
             for (var k = 0; k < _items.length; k++)
-              if (k != 2 || Api.i.canPayments) _navTile(k, drawer),
+              if (k == 0 || !Api.i.isAdminOnly) if (k != 2 || Api.i.canPayments) _navTile(k, drawer),
           ]),
         ),
       );
