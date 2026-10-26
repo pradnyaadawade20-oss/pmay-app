@@ -113,17 +113,18 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Cards are shown only for what the signed-in role may open (the server enforces the same rules).
   List<_Action> _actions(Map s) {
     final all = _allActions(s);
-    if (!Api.i.isAdminOnly) return all;
-    // Admin role: only these 4 cards.
-    const keep = ['Validation Queue', 'Payment Management', 'All Applications', 'Database Tables'];
-    return [...all.where((a) => keep.contains(a.title) && a.title != 'Database Tables'), _dbCard()];
+    // Finance / Allotment Manager role: sirf apna card + All Applications
+    if (Api.i.isFinanceOnly) {
+      return all.where((a) => a.title == 'Payment Management' || a.title == 'All Applications').toList();
+    }
+    if (Api.i.isAllotOnly) {
+      return all.where((a) => a.title == 'Unit Allotment' || a.title == 'All Applications').toList();
+    }
+    return all;
   }
 
-  _Action _dbCard() => _Action(Icons.table_chart_rounded, kNavy, 'Database Tables', 'View all database tables',
-      () => _o('Database Tables', const DatabaseTablesPage()),
-      linkLabel: 'Admin & Super Admin only');
-
-  List<_Action> _allActions(Map s) => [        _Action(Icons.fact_check_rounded, kOrange, 'Validation Queue', 'Review and verify applicant documents',
+  List<_Action> _allActions(Map s) => [
+        _Action(Icons.fact_check_rounded, kOrange, 'Validation Queue', 'Review and verify applicant documents',
             () => _o('Validation Queue', const ValidationQueuePage()),
             count: '${s['pending_review'] ?? 0}', countLabel: 'Pending'),
         if (Api.i.canPayments)

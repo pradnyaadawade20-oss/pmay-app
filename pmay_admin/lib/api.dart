@@ -38,6 +38,9 @@ class Ep {
   static String payReceipt(String id) => '/admin/payments/$id/receipt'; // file bytes (image / PDF) of the uploaded receipt
   static String payAct(String id, String act) => '/admin/payments/$id/$act'; // confirm | reject
   static String cheque(String id) => '/admin/applicants/$id/cheque'; // POST multipart {file, amount, cheque_number, bank, note}: records a cheque payment with its photo
+  static const collectOrder = '/admin/payments/collect-order'; // POST {applicant_id, amount}
+  static const collectVerify = '/admin/payments/collect-verify'; // POST {order_id}
+  static const collectOffline = '/admin/payments/collect-offline'; // POST multipart {applicant_id, amount, receipt}
 }
 
 /// Users with any of these roles may log in to the admin panel (what they can do is limited per role, see Api.can*).
@@ -137,6 +140,11 @@ class Api {
     return j;
   }
 
+  /// Multipart upload used by the Collect Payment dialog (offline receipt).
+  Future<Map<String, dynamic>> postMultipart(String path,
+      {required Map<String, String> fields, required String fileField, String? fileName, Uint8List? fileBytes}) =>
+      postFile(path, fields: fields, field: fileField, filename: fileName ?? 'receipt', bytes: fileBytes ?? Uint8List(0));
+
   Future<Uint8List> fileBytes(String path) async {
     final r = await http.get(Uri.parse('$base$path'), headers: _h);
     if (r.statusCode >= 400) {
@@ -150,9 +158,11 @@ class Api {
 extension Perms on Api {
   bool _has(List<String> r) => roles.any(r.contains);
   bool get isSuper => _has(['super_admin']);
-  /// Plain 'admin' role (not super admin): sees only the 4 core Quick Actions.
-  bool get isAdminOnly => _has(['admin']) && !_has(['super_admin']);
   bool get canReview => _has(['super_admin', 'admin']); // validation, agreement, bank review
   bool get canPayments => _has(['super_admin', 'admin', 'finance']);
+  /// Finance-only login: dashboard shows just Payment Management + All Applications.
+  bool get isFinanceOnly => _has(['finance']) && !_has(['super_admin', 'admin', 'allotment_manager', 'auditor']);
+  /// Allotment-Manager-only login: dashboard shows just Unit Allotment + All Applications.
+  bool get isAllotOnly => _has(['allotment_manager']) && !_has(['super_admin', 'admin', 'finance', 'auditor']);
   bool get canAllot => _has(['super_admin', 'admin', 'allotment_manager']);
 }

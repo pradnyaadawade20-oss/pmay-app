@@ -78,9 +78,6 @@ class _ChequePaymentDialogState extends State<ChequePaymentDialog> {
     final amount = double.tryParse(_amount.text.trim());
     if (_id == null) return setState(() => _err = 'Select the applicant');
     if (amount == null || amount <= 0) return setState(() => _err = 'Enter the cheque amount');
-    if (_no.text.trim().isEmpty) return setState(() => _err = 'Enter the cheque number');
-    if (_bank.text.trim().isEmpty) return setState(() => _err = 'Enter the bank name');
-    if (_note.text.trim().isEmpty) return setState(() => _err = 'Enter a note');
     if (_bytes == null) return setState(() => _err = 'Upload a photo of the cheque');
     setState(() {
       _busy = true;
@@ -155,9 +152,9 @@ class _ChequePaymentDialogState extends State<ChequePaymentDialog> {
               ),
               const SizedBox(height: 12),
               _field('Amount (Rs)', _amount, type: TextInputType.number, fmt: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))], maxLen: 12),
-              _field('Cheque number', _no, maxLen: 40),
-              _field('Bank name', _bank),
-              _field('Note', _note, hint: 'e.g. received at office on 24 Oct', maxLen: 300),
+              _field('Cheque number (optional)', _no, maxLen: 40),
+              _field('Bank name (optional)', _bank),
+              _field('Note (optional)', _note, hint: 'e.g. received at office on 24 Oct', maxLen: 300),
               const Text('Cheque photo', style: TextStyle(fontWeight: FontWeight.w600, color: kInk)),
               const SizedBox(height: 8),
               Container(

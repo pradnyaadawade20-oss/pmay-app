@@ -320,7 +320,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
     final email = _email.text.trim();
     if (!email.contains('@') || !email.contains('.')) return _err('Enter a valid email address');
     if (_tab == 2) {
-      if (_pass.text.length < 8) return _err('Password must be at least 8 characters');
+      if (_pass.text.length < 6) return _err('Password must be at least 6 characters');
       if (_pass.text != _conf.text) return _err('Passwords do not match');
     }
     final body = <String, dynamic>{'email': email, 'role': _role, 'display_name': _name.text.trim()};
@@ -405,7 +405,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
       if (_tab == 1) _hint('An invitation email with a magic link will be sent.'),
       if (_tab == 2) ...[
         _lbl('Password'),
-        TextField(controller: _pass, obscureText: true, decoration: const InputDecoration(hintText: 'Min. 8 characters')),
+        TextField(controller: _pass, obscureText: true, decoration: const InputDecoration(hintText: 'Min. 6 characters')),
         _lbl('Confirm Password'),
         TextField(controller: _conf, obscureText: true, decoration: const InputDecoration(hintText: 'Confirm password')),
       ],
