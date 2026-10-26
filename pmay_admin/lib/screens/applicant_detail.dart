@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
+import 'thumb_capture.dart';
 
 class ApplicantDetail extends StatefulWidget {
   final String id;
@@ -24,6 +25,10 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  void _load() {
     Api.i.get(Ep.one(widget.id)).then((r) {
       if (!mounted) return;
       setState(() {
@@ -32,6 +37,8 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
         _loan = r['loan'] is Map ? Map<String, dynamic>.from(r['loan']) : null;
         _unit = r['unit'] is Map ? Map<String, dynamic>.from(r['unit']) : null;
         _extra = _laterDocs(_a!, _loan, r['uploads']);
+        final hasThumb = ((r['uploads'] as List?) ?? const []).any((u) => u is Map && u['upload_type'] == 'thumb_impression');
+        if (hasThumb) _extra = {'thumb_impression': 'Thumb impression', ..._extra};
         _docFut = {for (final k in [...docKinds.keys, ..._extra.keys]) k: Api.i.fileBytes(Ep.doc(widget.id, k))};
       });
     }).catchError((e) {
@@ -310,6 +317,15 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
                           Wrap(spacing: 10, runSpacing: 10, children: [
                             for (final e in docKinds.entries) _docTile(e.key, e.value),
                           ]),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.fingerprint),
+                            label: Text(_extra.containsKey('thumb_impression') ? 'Re-capture thumb' : 'Capture thumb'),
+                            onPressed: () async {
+                              final ok = await showThumbCaptureDialog(context, widget.id);
+                              if (ok == true && mounted) _load();
+                            },
+                          ),
                           if (_extra.isNotEmpty) ...[
                             const SizedBox(height: 22),
                             const SectionTitle('Agreement, bank and receipt documents', Icons.folder_copy_outlined),
