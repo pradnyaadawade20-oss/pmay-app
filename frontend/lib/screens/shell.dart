@@ -51,7 +51,7 @@ class _MainShellState extends State<MainShell> {
     }
     final pages = [
       HomeScreen(onTab: _go),
-      const TrackingScreen(),
+      const TrackingScreen(showHeader: true),
       const ProjectsScreen(),
       const ProfileScreen(),
     ];
@@ -59,7 +59,7 @@ class _MainShellState extends State<MainShell> {
       canPop: false,
       onPopInvokedWithResult: _onBack,
       child: Scaffold(
-      appBar: AppBar(
+      appBar: _i == 1 ? null : AppBar(
         title: _i == 0
             ? const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Krutarth - PMAY', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -77,13 +77,14 @@ class _MainShellState extends State<MainShell> {
       ),
       body: pages[_i],
       bottomNavigationBar: NavigationBar(
+        backgroundColor: Colors.white,
         selectedIndex: _i,
         onDestinationSelected: _go,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.route_outlined), selectedIcon: Icon(Icons.route), label: 'Tracking'),
           NavigationDestination(
-              icon: Icon(Icons.location_city_outlined), selectedIcon: Icon(Icons.location_city), label: 'Projects'),
+              icon: Icon(Icons.apartment_outlined), selectedIcon: Icon(Icons.apartment), label: 'Projects'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
         ],
       ),

@@ -29,6 +29,12 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension> {
     }
 }
 
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21) // match Java 21 (Gradle may run on a newer JDK)
+    }
+}
+
 flutter {
     source = "../.."
 }
