@@ -7,7 +7,6 @@ import 'agreement_receipts.dart';
 import 'bank_documents.dart';
 import 'banking_loans.dart';
 import 'mortgage.dart';
-import 'applicants.dart';
 import 'database_tables.dart';
 import 'document_settings.dart';
 import 'payment_management.dart';

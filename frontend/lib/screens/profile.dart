@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state.dart';
 import '../theme.dart';
+import '../tour.dart';
 import '../widgets.dart';
 import 'apply.dart';
 import 'dashboard.dart';
@@ -74,6 +75,12 @@ class ProfileScreen extends StatelessWidget {
           item(Icons.language, 'Language', 'English', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LanguageScreen()))),
           const Divider(height: 1),
           item(Icons.notifications_none, 'Notifications', 'Updates about your application', () => openNotifications(context)),
+          const Divider(height: 1),
+          item(Icons.tour_outlined, 'App Guide', 'Take a quick tour of the app', () {
+            final overlay = Overlay.of(context, rootOverlay: true);
+            context.read<AppState>().goToTab(0); // tour Home se shuru hota hai
+            Future.delayed(const Duration(milliseconds: 500), () => AppTour.startOn(overlay));
+          }),
           const Divider(height: 1),
           item(Icons.help_outline, 'Help & Support', 'Contact us & FAQs', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen()))),
           const Divider(height: 1),

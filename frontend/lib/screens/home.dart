@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state.dart';
 import '../theme.dart';
+import '../tour.dart';
 import '../widgets.dart';
 import 'apply.dart';
 import 'auth.dart';
@@ -99,6 +100,7 @@ class HomeScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
               const SizedBox(height: 18),
               SizedBox(
+                key: TourKeys.apply,
                 width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
