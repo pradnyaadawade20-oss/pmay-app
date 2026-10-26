@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -32,8 +31,16 @@ String _date(dynamic v) {
   return d == null ? '-' : DateFormat('dd MMM yyyy').format(d.toLocal());
 }
 
-/// Builds the PDF for a document (allotment | agreement | bank-loan | mortgage).
-Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data, {Uint8List? signature}) async {
+/// Download / print flow (unsigned).
+Future<void> shareDocument(Map<String, dynamic> data) async {
+  final pdf = await buildDocumentPdf(data);
+  await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.filename);
+}
+
+/// Builds the PDF. If [signature] (PNG bytes) is given, it is stamped above the
+/// "Applicant Signature" line together with the e-sign time. If [thumb] is true the image is a
+/// thumb impression recorded at the office and the labels change accordingly.
+Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data, {Uint8List? signature, bool thumb = false}) async {
   final kind = data['kind'] as String;
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
@@ -85,22 +92,15 @@ Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynami
       pw.SizedBox(height: 60),
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Column(children: [
-          if (signature != null) pw.Image(pw.MemoryImage(signature), width: 130, height: 50),
+          if (signature != null) pw.Image(pw.MemoryImage(signature), width: thumb ? 60 : 130, height: 50, fit: pw.BoxFit.contain),
           pw.Container(width: 150, height: 0.5, color: PdfColors.black),
-          pw.Text('Applicant Signature', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text(thumb ? 'Applicant Thumb Impression' : 'Applicant Signature', style: const pw.TextStyle(fontSize: 9)),
           if (signature != null)
-            pw.Text('e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
-                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+            pw.Text('${thumb ? 'Thumb impression recorded on' : 'e-Signed on'} ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
         ]),
         pw.Column(children: [pw.Container(width: 150, height: 0.5, color: PdfColors.black), pw.Text('For ${_s(p['developer_name'])}', style: const pw.TextStyle(fontSize: 9))]),
       ]),
     ],
   ));
   return (bytes: await doc.save(), filename: '${kind}_${_s(a['unique_id'], 'doc')}.pdf');
-}
-
-/// Opens the system share sheet with the generated PDF.
-Future<void> shareDocument(Map<String, dynamic> data) async {
-  final pdf = await buildDocumentPdf(data);
-  await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.filename);
 }
