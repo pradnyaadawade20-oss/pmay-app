@@ -176,6 +176,13 @@ class Api {
     final streamed = await req.send().timeout(const Duration(minutes: 3));
     return _handle(await http.Response.fromStream(streamed));
   }
+       /// Latest thumb impression recorded by staff at the office (null if none).
+     Future<List<int>?> myThumb() async {
+       final r = await http.get(Uri.parse('$base/me/thumb'), headers: _auth);
+       if (r.statusCode == 404) return null;
+       if (r.statusCode >= 400) throw ApiException('Could not load thumb impression', r.statusCode);
+       return r.bodyBytes;
+     }
 
   /// Download a protected file (uploaded document) as bytes.
   Future<List<int>> fileBytes(String relPath) async {
