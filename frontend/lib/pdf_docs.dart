@@ -33,7 +33,7 @@ String _date(dynamic v) {
 }
 
 /// Builds the PDF for a document (allotment | agreement | bank-loan | mortgage).
-Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data) async {
+Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data, {Uint8List? signature}) async {
   final kind = data['kind'] as String;
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
@@ -84,7 +84,14 @@ Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynami
       for (final c in _clauses(kind)) pw.Padding(padding: const pw.EdgeInsets.only(bottom: 6), child: pw.Text(c, style: const pw.TextStyle(fontSize: 10))),
       pw.SizedBox(height: 60),
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-        pw.Column(children: [pw.Container(width: 150, height: 0.5, color: PdfColors.black), pw.Text('Applicant Signature', style: const pw.TextStyle(fontSize: 9))]),
+        pw.Column(children: [
+          if (signature != null) pw.Image(pw.MemoryImage(signature), width: 130, height: 50),
+          pw.Container(width: 150, height: 0.5, color: PdfColors.black),
+          pw.Text('Applicant Signature', style: const pw.TextStyle(fontSize: 9)),
+          if (signature != null)
+            pw.Text('e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+        ]),
         pw.Column(children: [pw.Container(width: 150, height: 0.5, color: PdfColors.black), pw.Text('For ${_s(p['developer_name'])}', style: const pw.TextStyle(fontSize: 9))]),
       ]),
     ],

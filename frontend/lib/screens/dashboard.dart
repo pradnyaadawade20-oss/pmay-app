@@ -9,6 +9,7 @@ import '../state.dart';
 import '../widgets.dart';
 import '../theme.dart';
 import 'apply.dart';
+import 'esign.dart';
 import 'bank_docs.dart';
 import 'login.dart';
 import 'otp.dart';
@@ -74,6 +75,21 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   /// Download: saves the PDF to the phone's Downloads folder.
+  Future<void> _eSign(String docKind, String uploadType) async {
+    final s = context.read<AppState>();
+    setState(() => _busy = true);
+    try {
+      final ok = await eSignAndUpload(context, s.api, docKind: docKind, uploadType: uploadType);
+      if (ok) {
+        await s.refresh();
+        if (mounted) toast(context, 'Document e-signed and submitted');
+      }
+    } catch (e) {
+      if (mounted) toast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
   Future<void> _doc(String kind) async {
     if (_docBusy) return;
     setState(() => _docBusy = true);
@@ -159,6 +175,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             children: [
               _docRow('Allotment letter', 'allotment'),
               _docRow('Agreement for sale', 'agreement'),
+              FilledButton.icon(onPressed: _busy ? null : () => _eSign('agreement', 'agreement_signed'), icon: const Icon(Icons.draw), label: const Text('E-sign agreement')),
               FilledButton.icon(onPressed: _busy ? null : () => _upload('agreement_signed', multi: true), icon: const Icon(Icons.upload_file), label: const Text('Upload signed agreement')),
             ]);
       case 'stage_6_agreement_receipt':
@@ -170,12 +187,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
         return InfoCard(icon: Icons.account_balance, color: Colors.blue, title: 'Bank loan form',
             message: 'Download the form, submit it at your bank and upload the receipt.', children: [
           OutlinedButton.icon(onPressed: () => _doc('bank-loan'), icon: const Icon(Icons.download), label: const Text('Download loan form')),
+          FilledButton.icon(onPressed: _busy ? null : () => _eSign('bank-loan', 'bank_loan_receipt'), icon: const Icon(Icons.draw), label: const Text('E-sign loan form')),
           FilledButton.icon(onPressed: _busy ? null : () => _upload('bank_loan_receipt'), icon: const Icon(Icons.upload_file), label: const Text('Upload loan receipt')),
         ]);
       case 'stage_9_mortgage':
         return InfoCard(icon: Icons.gavel, color: Colors.blue, title: 'Mortgage deed',
             message: 'Download, sign and upload the mortgage deed receipt.', children: [
           OutlinedButton.icon(onPressed: () => _doc('mortgage'), icon: const Icon(Icons.download), label: const Text('Download mortgage deed')),
+          FilledButton.icon(onPressed: _busy ? null : () => _eSign('mortgage', 'mortgage_receipt'), icon: const Icon(Icons.draw), label: const Text('E-sign mortgage deed')),
           FilledButton.icon(onPressed: _busy ? null : () => _upload('mortgage_receipt'), icon: const Icon(Icons.upload_file), label: const Text('Upload mortgage receipt')),
         ]);
       case 'stage_10_completed':
