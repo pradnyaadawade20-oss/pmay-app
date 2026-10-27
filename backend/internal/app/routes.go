@@ -40,6 +40,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/applicants/{id}/validation", s.authed(s.adminValidation, staff...))
 	mux.HandleFunc("POST /api/admin/payments/{id}/review", s.authed(s.adminPaymentReview, financeRole...))
 	mux.HandleFunc("GET /api/admin/units", s.authed(s.panelUnits, anyAdmin...))
+	mux.HandleFunc("POST /api/admin/units", s.authed(s.panelAddUnit, allotRole...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/allot", s.authed(s.adminAllot, allotRole...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/agreement-review", s.authed(s.adminAgreementReview, staff...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/bank-review", s.authed(s.adminBankReview, staff...))
