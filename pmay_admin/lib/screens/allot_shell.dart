@@ -25,6 +25,8 @@ class _AllotShellState extends State<AllotShell> {
   void _home() => setState(() => _sub = null);
 
   bool get _isApps => _sub != null && _subTitle == 'All Applications';
+  bool get _isAdd => _sub != null && _subTitle == 'Add Allotment';
+  bool get _showBack => _isApps || _isAdd;
 
   Widget _logout() => OutlinedButton.icon(
         onPressed: widget.onLogout,
@@ -34,8 +36,8 @@ class _AllotShellState extends State<AllotShell> {
       );
 
   Widget _header(bool wide) {
-    final title = _isApps ? 'Krutarth - All Applications' : 'Krutarth - Allotment Dashboard';
-    final icon = _isApps ? Icons.people_alt_outlined : Icons.apartment_rounded;
+    final title = _isApps ? 'Krutarth - All Applications' : (_isAdd ? 'Krutarth - Add Allotment' : 'Krutarth - Allotment Dashboard');
+    final icon = _isApps ? Icons.people_alt_outlined : (_isAdd ? Icons.add_home_work_rounded : Icons.apartment_rounded);
     return Container(
       height: 76,
       padding: EdgeInsets.symmetric(horizontal: wide ? 24 : 12),
@@ -44,7 +46,7 @@ class _AllotShellState extends State<AllotShell> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1500),
           child: Row(children: [
-            if (_isApps) ...[
+            if (_showBack) ...[
               TextButton.icon(
                 onPressed: _home,
                 icon: const Icon(Icons.arrow_back_rounded, size: 18, color: kInk),
