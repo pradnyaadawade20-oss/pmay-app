@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
+import 'mortgage_deed_form.dart';
 
 /// Mortgage stage: applicants at Stage 9 (mortgage deed to be signed & receipt uploaded)
 /// and Stage 10 (completed, receipt uploaded). Read-only: the receipt moves the applicant
@@ -170,12 +171,23 @@ class _MortgagePageState extends State<MortgagePage> {
                           ])),
                           DataCell(Text(_completed(a) ? _fmtD(a['mortgage_deed_signed_at'] ?? a['updated_at']) : '-', style: const TextStyle(fontSize: 15, color: kInk))),
                           DataCell(_pill(a)),
-                          DataCell(OutlinedButton.icon(
-                            onPressed: () => _view(a),
-                            icon: const Icon(Icons.visibility_outlined, size: 18),
-                            label: const Text('View'),
-                            style: OutlinedButton.styleFrom(foregroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                          )),
+                          DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
+                            OutlinedButton.icon(
+                              onPressed: () => _view(a),
+                              icon: const Icon(Icons.visibility_outlined, size: 18),
+                              label: const Text('View'),
+                              style: OutlinedButton.styleFrom(foregroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                            ),
+                            if (Api.i.canReview && _awaiting(a)) ...[
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: () => showDialog<void>(context: context, builder: (_) => MortgageDeedDialog(id: '${a['id']}')),
+                                icon: const Icon(Icons.edit_document, size: 18),
+                                label: const Text('Prepare Deed'),
+                                style: OutlinedButton.styleFrom(foregroundColor: kBlue, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                              ),
+                            ],
+                          ])),
                         ]),
                     ],
                   ),
@@ -198,6 +210,17 @@ class _MortgagePageState extends State<MortgagePage> {
     }
     return LayoutBuilder(
       builder: (context, c) => ListView(children: [
+        if (Api.i.canReview) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: () => showDialog<void>(context: context, builder: (_) => const MortgageScheduleDialog()),
+              icon: const Icon(Icons.map_outlined, size: 18),
+              label: const Text('Property Schedule'),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         _stats(c.maxWidth),
         const SizedBox(height: 24),
         Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 12, children: [
