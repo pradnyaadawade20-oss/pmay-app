@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'mortgage_deed_pdf.dart';
 
 /// Generates the 4 printable documents from /api/me/documents/{kind} data
 /// (kind = allotment | agreement | bank-loan | mortgage).
@@ -42,6 +43,10 @@ Future<void> shareDocument(Map<String, dynamic> data) async {
 /// thumb impression recorded at the office and the labels change accordingly.
 Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data, {Uint8List? signature, bool thumb = false}) async {
   final kind = data['kind'] as String;
+  // Simple Mortgage Deed: only when the admin has filled in the deed details; otherwise the old document below.
+  if (kind == 'mortgage' && data['deed'] is Map && (data['deed'] as Map).isNotEmpty) {
+    return buildMortgageDeedPdf(data, signature: signature, thumb: thumb);
+  }
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
   final p = Map<String, dynamic>.from(data['project'] ?? {});
