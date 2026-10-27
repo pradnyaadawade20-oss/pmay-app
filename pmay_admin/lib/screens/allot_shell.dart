@@ -26,7 +26,7 @@ class _AllotShellState extends State<AllotShell> {
 
   bool get _isApps => _sub != null && _subTitle == 'All Applications';
   bool get _isAdd => _sub != null && _subTitle == 'Add Allotment';
-  bool get _showBack => _isApps || _isAdd;
+  bool get _showBack => _sub != null; // Back on every sub-screen
 
   Widget _logout() => OutlinedButton.icon(
         onPressed: widget.onLogout,
