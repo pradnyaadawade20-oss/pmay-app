@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
+import 'add_unit.dart';
 import 'all_applications.dart';
 import 'agreement_receipts.dart';
 import 'bank_documents.dart';
@@ -118,7 +119,7 @@ class _DashboardPageState extends State<DashboardPage> {
       return all.where((a) => a.title == 'Payment Management' || a.title == 'All Applications').toList();
     }
     if (Api.i.isAllotOnly) {
-      return all.where((a) => a.title == 'Unit Allotment' || a.title == 'All Applications').toList();
+      return all.where((a) => a.title == 'Unit Allotment' || a.title == 'Add Allotment' || a.title == 'All Applications').toList();
     }
     return all;
   }
@@ -134,6 +135,10 @@ class _DashboardPageState extends State<DashboardPage> {
         _Action(Icons.home_work_rounded, kGreen, 'Unit Allotment', 'Manage units and allot flats to applicants',
             () => _o('Unit Allotment', const UnitAllotmentPage()),
             count: '${s['available_units'] ?? 0}', countLabel: 'Available Units'),
+        if (Api.i.isAllotOnly) // only the Allotment Manager gets this box
+          _Action(Icons.add_home_work_rounded, kOrange, 'Add Allotment', 'Add a new unit with tower, wing and price',
+              () => _o('Add Allotment', const AddUnitPage()),
+              linkLabel: 'Add New Unit'),
         _Action(Icons.description_rounded, kOrange, 'Agreement Receipts', 'Verify signed agreement receipts (Stage 6)',
             () => _o('Agreement Receipts', const AgreementReceiptsPage()),
             linkLabel: 'Review Agreements'),

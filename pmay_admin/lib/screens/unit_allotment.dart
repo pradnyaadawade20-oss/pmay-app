@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
+import 'allot_ui.dart';
 
 /// Indian-style rupee formatting, e.g. 2550000 -> ₹25,50,000
 String inr(Object? v) {
@@ -73,6 +74,11 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
     return _units.where((u) {
       if (_status == 'available' && !_isAvailable(u)) return false;
       if (_status == 'allotted' && _isAvailable(u)) return false;
+      if (Api.i.isAllotOnly) {
+        final st = '${u['status']}'.toLowerCase();
+        if (_status == 'allotted' && st != 'allotted') return false;
+        if (_status == 'reserved' && st != 'reserved') return false;
+      }
       if (_wing != 'all' && '${u['wing']}' != _wing) return false;
       if (q.isEmpty) return true;
       return '${u['unit_number']} ${u['tower']} ${u['wing']}'.toLowerCase().contains(q);
@@ -106,7 +112,7 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
       _stat('Total Units', total, kInk),
       _stat('Available', avail, kGreen),
       _stat('Allotted', total - avail, kBlue),
-      _stat('Eligible Applicants', _eligible.length, kOrange),
+      _stat('Eligible Applicants', _eligible.length, Api.i.isAllotOnly ? kBlue : kOrange),
     ];
     if (narrow) {
       return Column(children: [
@@ -124,7 +130,9 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
   }
 
   // ---------- filters ----------
-  Widget _dropdown(String value, Map<String, String> items, ValueChanged<String> onChanged, double width) => SizedBox(
+  Widget _dropdown(String value, Map<String, String> items, ValueChanged<String> onChanged, double width) => Api.i.isAllotOnly
+      ? AllotSelect(value: value, items: items, onChanged: onChanged, width: width)
+      : SizedBox(
         width: width,
         child: DropdownButtonFormField<String>(
           initialValue: value,
@@ -143,7 +151,7 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
       onChanged: (v) => setState(() => _q = v),
       decoration: const InputDecoration(hintText: 'Search by unit number, tower...', prefixIcon: Icon(Icons.search_rounded), isDense: true),
     );
-    final status = _dropdown(_status, const {'all': 'All Status', 'available': 'Available', 'allotted': 'Allotted'}, (v) => setState(() => _status = v), 150);
+    final status = _dropdown(_status, {'all': 'All Status', 'available': 'Available', 'allotted': 'Allotted', if (Api.i.isAllotOnly) 'reserved': 'Reserved'}, (v) => setState(() => _status = v), 150);
     final wing = _dropdown(_wing, {'all': 'All Wings', for (final w in _wings) w: 'Wing $w'}, (v) => setState(() => _wing = v), 150);
     if (narrow) {
       return Column(children: [
@@ -192,7 +200,11 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
                     DataCell(Text('${u['floor'] ?? '-'}')),
                     DataCell(Text('${u['carpet_area'] ?? '-'} Sq.m')),
                     DataCell(Text(inr(u['amount']), style: const TextStyle(fontWeight: FontWeight.w600, color: kInk))),
-                    DataCell(_isAvailable(u) ? const Pill('Available', kGreen) : const Pill('Allotted', kBlue)),
+                    DataCell(_isAvailable(u)
+                        ? const Pill('Available', kGreen)
+                        : (Api.i.isAllotOnly && '${u['status']}'.toLowerCase() == 'reserved')
+                            ? const Pill('Reserved', kOrange)
+                            : const Pill('Allotted', kBlue)),
                     DataCell(_isAvailable(u)
                         ? OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(foregroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),

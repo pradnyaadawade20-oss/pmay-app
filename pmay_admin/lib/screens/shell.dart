@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
+import 'allot_shell.dart';
 import 'applicants.dart';
 import 'dashboard.dart';
 import 'payment_management.dart';
@@ -145,6 +146,7 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (Api.i.isAllotOnly) return AllotShell(onLogout: widget.onLogout); // Allotment Manager: own layout
     final w = MediaQuery.of(context).size.width;
     final wide = w >= 900;
     return Scaffold(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
+import 'allot_ui.dart';
 import 'applicant_detail.dart';
 import 'applicants.dart' show openStageScreen;
 import 'payment_management.dart' show PaymentManagementPage;
@@ -205,6 +206,14 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
                   controller: _q,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(hintText: 'Search by Form No., Name, Email, Phone...', prefixIcon: Icon(Icons.search_rounded), isDense: true))),
+          if (Api.i.isAllotOnly)
+            AllotSelect(
+              width: w(200),
+              value: _stage,
+              items: {'': 'All Stages', for (final e in stageOptions) e.$1: e.$2},
+              onChanged: (v) => setState(() => _stage = v), // Allotment Manager: filter only, no jump to other screens
+            )
+          else
           SizedBox(
             width: w(200),
             child: DropdownButtonFormField<String>(
@@ -225,6 +234,14 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
               },
             ),
           ),
+          if (Api.i.isAllotOnly)
+            AllotSelect(
+              width: w(180),
+              value: _admin,
+              items: {'': 'All Admins', for (final e in admins) e: e},
+              onChanged: (v) => setState(() => _admin = v),
+            )
+          else
           SizedBox(
             width: w(180),
             child: DropdownButtonFormField<String>(
