@@ -34,7 +34,7 @@ String _dateLong(String s) {
 }
 
 Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dynamic> data,
-    {Uint8List? signature, bool thumb = false}) async {
+    {Uint8List? signature}) async {
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
   final p = Map<String, dynamic>.from(data['project'] ?? {});
@@ -115,7 +115,7 @@ Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dy
         width: 210,
         child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           pw.SizedBox(height: img == null ? 34 : 0),
-          if (img != null) pw.Image(pw.MemoryImage(img), width: thumb ? 60 : 130, height: 50, fit: pw.BoxFit.contain),
+          if (img != null) pw.Image(pw.MemoryImage(img), width: 130, height: 50, fit: pw.BoxFit.contain),
           pw.Container(height: 0.5, color: PdfColors.black),
           pw.SizedBox(height: 3),
           pw.Text(label, style: bold),
@@ -127,7 +127,7 @@ Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dy
 
   final signedNote = signature == null
       ? null
-      : '${thumb ? 'Thumb impression recorded on' : 'e-Signed on'} ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}';
+      : 'e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}';
 
   final doc = pw.Document();
   doc.addPage(pw.MultiPage(

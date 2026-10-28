@@ -20,7 +20,6 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/me", s.authed(s.me))
 	mux.HandleFunc("POST /api/me/upload", s.authed(s.meUpload))
 	mux.HandleFunc("POST /api/me/bank-documents", s.authed(s.meBankDocs))
-	mux.HandleFunc("GET /api/me/thumb", s.authed(s.meThumb))
 	mux.HandleFunc("GET /api/me/notifications", s.authed(s.myNotifications))
 	mux.HandleFunc("POST /api/me/notifications/read", s.authed(s.readNotifications))
 	mux.HandleFunc("POST /api/me/device-token", s.authed(s.saveDeviceToken))
@@ -46,7 +45,6 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/mortgage-schedule", s.authed(s.adminSaveMortgageSchedule, staff...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/allot", s.authed(s.adminAllot, allotRole...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/agreement-review", s.authed(s.adminAgreementReview, staff...))
-	mux.HandleFunc("POST /api/admin/applicants/{id}/thumb", s.authed(s.adminSaveThumb, staff...))
 	mux.HandleFunc("POST /api/admin/applicants/{id}/stage", s.authed(s.adminSetStage, "super_admin"))
 	mux.HandleFunc("POST /api/admin/users", s.authed(s.adminCreateUser, "super_admin"))
 
