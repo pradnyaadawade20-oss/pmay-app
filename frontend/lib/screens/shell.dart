@@ -8,6 +8,7 @@ import 'notifications.dart';
 import 'profile.dart';
 import 'projects.dart';
 import 'dashboard.dart';
+import '../tour.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -19,6 +20,16 @@ class _MainShellState extends State<MainShell> {
   int _i = 0;
   DateTime? _lastBack;
   static const _titles = ['Krutarth - PMAY', 'Tracking', 'Projects', 'Profile'];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pehli baar Home dikhne ke baad app tour chalao
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (mounted) AppTour.startIfFirstTime(context);
+    });
+  }
 
   void _go(int i) => setState(() => _i = i);
 
@@ -71,6 +82,7 @@ class _MainShellState extends State<MainShell> {
             : Text(_titles[_i]),
         actions: [
           IconButton(
+              key: TourKeys.bell,
               icon: Badge(smallSize: 9, isLabelVisible: hasUnreadNotifications(s), child: const Icon(Icons.notifications_none)),
               onPressed: () => openNotifications(context)),
         ],
@@ -80,12 +92,23 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.white,
         selectedIndex: _i,
         onDestinationSelected: _go,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.route_outlined), selectedIcon: Icon(Icons.route), label: 'Tracking'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(
-              icon: Icon(Icons.apartment_outlined), selectedIcon: Icon(Icons.apartment), label: 'Projects'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+              key: TourKeys.tracking,
+              icon: const Icon(Icons.route_outlined),
+              selectedIcon: const Icon(Icons.route),
+              label: 'Tracking'),
+          NavigationDestination(
+              key: TourKeys.projects,
+              icon: const Icon(Icons.apartment_outlined),
+              selectedIcon: const Icon(Icons.apartment),
+              label: 'Projects'),
+          NavigationDestination(
+              key: TourKeys.profile,
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person),
+              label: 'Profile'),
         ],
       ),
     ),
