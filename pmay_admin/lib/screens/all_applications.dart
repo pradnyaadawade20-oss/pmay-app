@@ -560,6 +560,141 @@ String _v(Map a, String k, [String d = '________']) {
   return (x == null || '$x'.trim().isEmpty) ? d : '$x';
 }
 
+// ---------- Simple Mortgage Deed (same text as the customer app PDF; blanks print as ____________) ----------
+const _mdBlank = '____________';
+
+String _mdT(Map m, String k) {
+  final v = m[k];
+  return (v == null || '$v'.trim().isEmpty) ? '' : '$v'.trim();
+}
+
+String _mdV(Object? v) {
+  final s = (v ?? '').toString().trim();
+  return s.isEmpty ? _mdBlank : s;
+}
+
+String _mdInr(num n) {
+  final neg = n < 0;
+  final x = n.abs();
+  final fixed = x == x.truncate() ? x.truncate().toString() : x.toStringAsFixed(2);
+  final parts = fixed.split('.');
+  var whole = parts[0];
+  if (whole.length > 3) {
+    final last3 = whole.substring(whole.length - 3);
+    var rest = whole.substring(0, whole.length - 3);
+    final g = <String>[];
+    while (rest.length > 2) {
+      g.insert(0, rest.substring(rest.length - 2));
+      rest = rest.substring(0, rest.length - 2);
+    }
+    if (rest.isNotEmpty) g.insert(0, rest);
+    whole = '${g.join(',')},$last3';
+  }
+  return '${neg ? '-' : ''}$whole${parts.length > 1 ? '.${parts[1]}' : ''}';
+}
+
+String _mdRs(Object? v) {
+  final s = (v ?? '').toString().replaceAll(',', '').trim();
+  final n = num.tryParse(s);
+  if (n == null) return s.isEmpty ? _mdBlank : s;
+  return 'Rs. ${_mdInr(n)}/-';
+}
+
+String _mdDate(String s) {
+  final d = DateTime.tryParse(s);
+  if (d == null) return s.isEmpty ? _mdBlank : s;
+  return '${d.day.toString().padLeft(2, '0')} ${_monFull[d.month - 1]} ${d.year}';
+}
+
+List<(String, String)> _mortgageDeedBlocks(Map a, String name, String age) {
+  final d = a['_deed'] is Map ? Map<String, dynamic>.from(a['_deed']) : <String, dynamic>{};
+  final sc = a['_schedule'] is Map ? Map<String, dynamic>.from(a['_schedule']) : <String, dynamic>{};
+  final u = a['_unit'] is Map ? Map<String, dynamic>.from(a['_unit']) : <String, dynamic>{};
+  final p = a['_project'] is Map ? Map<String, dynamic>.from(a['_project']) : <String, dynamic>{};
+
+  String bound(String k) => _mdT(d, k).isNotEmpty ? _mdT(d, k) : _mdT(sc, k);
+
+  final person = fullName(a);
+  final place = _mdV(_mdT(d, 'exec_place'));
+  final date = _mdDate(_mdT(d, 'exec_date'));
+  final loanAmt = _mdRs(_mdT(d, 'loan_amount'));
+  final bankName = _mdT(d, 'bank_name').isNotEmpty ? _mdT(d, 'bank_name') : _mdT(p, 'bank_name');
+  final bankBranch = _mdT(d, 'bank_branch').isNotEmpty ? _mdT(d, 'bank_branch') : _mdT(p, 'bank_branch');
+  final building = _mdT(u, 'building_name').isNotEmpty ? _mdT(u, 'building_name') : _mdT(p, 'project_name');
+  final instType = _mdT(d, 'installment_type').isEmpty ? 'monthly' : _mdT(d, 'installment_type');
+  final purpose = _mdT(d, 'loan_purpose').isEmpty ? 'Purchase of flat' : _mdT(d, 'loan_purpose');
+  final extra = _mdT(d, 'extra_terms');
+
+  final authority = _mdT(sc, 'authority_name').isEmpty
+      ? _mdBlank
+      : '${_mdT(sc, 'authority_name')}${_mdT(sc, 'authority_type').isEmpty ? '' : ' (${_mdT(sc, 'authority_type')})'}';
+  final survey = _mdT(sc, 'survey_no').isEmpty
+      ? _mdBlank
+      : '${_mdT(sc, 'survey_type').isEmpty ? 'Survey No.' : _mdT(sc, 'survey_type')} ${_mdT(sc, 'survey_no')}';
+  final schedule =
+      'All that piece and parcel of land situated within Registration Division and District ${_mdV(_mdT(sc, 'district'))} Sub-Division and Taluka ${_mdV(_mdT(sc, 'taluka'))} '
+      'within the limits of $authority situate At. Village ${_mdV(_mdT(sc, 'village'))} $survey Hissa/Plot No. ${_mdV(_mdT(sc, 'plot_no'))} '
+      'With Constructed Building name as ${_mdV(building)} Flat No./House No. ${_mdV(u['unit_number'])} Floor No. ${_mdV(u['floor'])} '
+      'Area ${_mdV(u['carpet_area_sqm'])} sqmts. And bounded by as follows:';
+
+  String sign(String label, String who, [String sub = '']) =>
+      '\n\n______________________________\n**$label**\n${_mdV(who)}${sub.isEmpty ? '' : '\n$sub'}';
+
+  return [
+    ('title', 'SIMPLE MORTGAGE DEED'),
+    ('p', 'This deed of mortgage made and executed on $date at $place between'),
+    ('p',
+        '${_mdV(person)}, Age ${_mdV(age == '____' ? '' : age)}, Occupation ${_mdV(a['occupation'])}, Residing At ${_mdV(a['full_address'])}, '
+            'PAN ${_mdV(a['pan_number'])}, UID ${_mdV(a['aadhar_number'])}, Mobile No. ${_mdV(a['phone'])}, Email id ${_mdV(a['email'])}, '
+            'HEREINAFTER Called "the Mortgager" (which expression shall unless excluded by or repugnant to the subject to the context include '
+            'his/her heirs, executors administrators representative assigns and transferee in interest of the) one part AND'),
+    ('p',
+        '${_mdV(bankName)}, represented by its Authorized Signatory ${_mdV(_mdT(d, 'signatory_designation'))}, Bank Address: ${_mdV(_mdT(d, 'bank_address'))}, '
+            'Branch at ${_mdV(bankBranch)}, TAN No: ${_mdV(_mdT(d, 'bank_tan'))}, UID ${_mdV(_mdT(d, 'bank_uid'))}, Mobile No. ${_mdV(_mdT(d, 'bank_mobile'))}, '
+            'Email id ${_mdV(_mdT(d, 'bank_email'))} hereinafter called the "Mortgagee" (which expression shall unless excluded by or repugnant to the '
+            'subject or context include its successors, transferees-in-interest and assigns) the other part.'),
+    ('p', "AND WHEREAS the mortgagor is the sole and absolute owner of immovable Property described in Schedule hereunder, and hereinafter referred to as the 'said Property'"),
+    ('p',
+        'Whereas, the Mortgagor is the absolute owner, having acquired the property, by ${_mdV(_mdT(d, 'ownership_by'))} and since then Mortgagor has been in possession and enjoyment of the schedule property and paying taxes and levies thereon, as sole and absolute owner thereof.'),
+    ('p',
+        'Whereas Mortgagor being in need of money for the purpose of $purpose. Mortgagor requested the Mortgagee to lend him a sum of $loanAmt which the Mortgagee has agreed to do on the Mortgagor executing these presents with a view to secure the repayment thereof with interest as hereinafter provided.'),
+    ('p', 'AND WHEREAS mortgagor assured unto the mortgagee that he/she would pay the said amount which is an outstanding debt payable from the mortgagor to the mortgagee along with interest thereon;'),
+    ('p',
+        'AND WHEREAS the mortgagees have agreed to grant loan up to $loanAmt FROM TIME TO TIME to the mortgagors agreeing to utilize the amounts so advanced for the purpose applied for and on such terms and conditions as the mortgagees may stipulate from time to time and on the mortgagees securing the same by executing a mortgage of their immovable property'),
+    ('p', 'AND WHEREAS the mortgagee agreed to give time to the mortgagor so as to enable him/her/them to make the payment of the aforesaid debt; however, the mortgagee insisted on the mortgagor so as to furnish unto the mortgagee security for this payment of debt;'),
+    ('p', 'AND WHEREAS considering the cooperation extended by the mortgagee by giving time to the mortgagor the payment of the aforesaid debt, the mortgagor readily agreed to confer such a security unto the mortgagee;'),
+    ('p', 'AND WHEREAS the parties hereto had due deliberations and discussions, and the mortgagor has agreed to mortgage the said property in favour of the mortgagee as a collateral security;'),
+    ('p', 'AND WHEREAS the parties hereto have arrived at an understanding which they have decided to reduce into writing being these presents;'),
+    ('h', 'NOW, THIS DEED WITNESS as follows:'),
+    ('p', '1) That the mortgagor does hereby mortgage the said property in favour of the mortgagee subject to the terms and conditions stated in this deed.'),
+    ('p', '2) That the mortgagor is liable to pay unto the mortgagee an amount of $loanAmt as a debt, and for the purpose of securing repayment of this debt, mortgage the said property in favour of the mortgagee.'),
+    ('p', '3) That the mortgagor hereby agrees to repay the said amount of debt within a period of ${_mdV(_mdT(d, 'loan_period_years'))} years from execution of these present.'),
+    ('p',
+        '4) That the mortgagor hereby assures to pay unto the mortgagee the said amount of $loanAmt along with interest thereon at the rate of ${_mdV(_mdT(d, 'interest_rate'))}% per annum.'
+            '${_mdT(d, 'installment_amount').isEmpty ? '' : ' And the Mortgagor would also repay loan amount with interest to Mortgagee at ${_mdRs(_mdT(d, 'installment_amount'))} $instType installment.'}'),
+    ('p', '5) That the mortgagor assures unto the mortgagee that the said property is his/her absolute property, and no one else has any right, title or interest in the same. The mortgagor hereby assures unto the mortgagee that the said property is free from any encumbrances.'),
+    ('p', '6) That the mortgagor hereby assures unto the mortgagee that he/she will not deal with the said property in any manner so as to prejudicially affect the rights of the mortgagee.'),
+    ('p', '7) And it is further agreed and declared by the Mortgagor that he shall also be liable to pay and shall pay all the costs, charges and expenses that the Mortgagee will incur for the protection of the mortgage security and or for the realization of the mortgage amount and the same shall be deemed to form part of the mortgage amount and the security therefore as aforesaid'),
+    ('p',
+        '8) And it is further agreed that during the pending of the security hereby created and until repayment of the mortgage amount, the Mortgagor will get insured and keep insured the said scheduled property from any loss and damages due to fire or any other incident in the sum of at least ${_mdRs(_mdT(d, 'insurance_amount'))} with some Insurance Company of repute and pay all premium in the insurance policy as and when it becomes due and payable in respect thereof to such company and shall hand over the policy to the Mortgagee duly endorsed in his name as assignee and in the event of the Mortgagor failing to do so or to pay the premium, the Mortgagee will be entitled to insure the said property and structures and/or to pay the premium thereon and the amount paid by the Mortgagee in respect thereof will be deemed to form part of the mortgage amount.'),
+    ('p', '9) That in the event, if the mortgagor fails to repay the aforesaid amount of debt along with interest thereon, then the mortgagee shall be entitled to claim foreclosure of the mortgage, and in the default of the mortgagor, the mortgagee shall be entitled to enforce all such remedies available against the mortgagor as are available to the mortgagee under simple mortgage.'),
+    ('p', '10) All the obligations of the Mortgagor and all the rights and remedies and powers of the Mortgagee under the law for the time being in force except so far as they be expressly varied or may be inconsistent with these presents shall be deemed to be incorporated in these presents. PROVIDED THAT the provision of Sections 61, 65A and 67A, respectively, of the Transfer of Property Act, 1882, shall not apply to these presents or to the Mortgagor or the Mortgagee inters and this shall be deemed a contract to the contrary for the purpose of these sections.'),
+    ('p', '11) The Mortgagor confirms and declares that he/she has actual possession of the Mortgaged Premises and has absolute power and authority to mortgage the Mortgaged Premises in favour of the Mortgagee and provided that the possession of the said mortgaged property is / will neither be given nor agreed to be given to Mortgagee except in the event of default.'),
+    if (extra.isNotEmpty) ('p', '11A) $extra'),
+    ('p', '12) That all the expenses towards stamp duty, registration charges and incidental expenses thereto were agreed to be borne out by the mortgagor, and accordingly he/she has done so.'),
+    ('h', 'THE SCHEDULE OF THE PROPERTY ABOVE REFERRED TO'),
+    ('p', schedule),
+    ('p', 'On or towards the East : ${_mdV(bound('east'))}\nOn or towards the South : ${_mdV(bound('south'))}\nOn or towards the West : ${_mdV(bound('west'))}\nOn or towards the North : ${_mdV(bound('north'))}'),
+    ('p', 'IN WITNESS WHEREOF the parties hereto have signed hereunder at $place on this $date.'),
+    ('p', sign("MORTGAGOR'S Name and SIGN", person)),
+    ('p', sign("MORTGAGEE'S Name and SIGN", _mdT(d, 'signatory_name'), _mdT(d, 'signatory_designation'))),
+    ('h', 'WITNESSES:'),
+    ('p', sign('1. Name and sign', _mdT(d, 'witness1_name'), _mdT(d, 'witness1_address'))),
+    ('p', sign('2. Name and sign', _mdT(d, 'witness2_name'), _mdT(d, 'witness2_address'))),
+  ];
+}
+
+
 /// kind: title | h | p.   `**text**` = bold.
 List<(String, String)> docBlocks(String doc, Map a) {
   final now = DateTime.now();
@@ -587,17 +722,7 @@ List<(String, String)> docBlocks(String doc, Map a) {
         ('p', 'Yours faithfully,\n**For $_promoterName**'),
       ];
     case 'Mortgage Deed':
-      return [
-        ('title', 'MORTGAGE DEED'),
-        ('p', 'This Deed of Mortgage is made at $_place on this **$day** day of **$month**'),
-        ('h', 'BETWEEN:'),
-        ('p',
-            '**$name**, Age $age Years, Residing At: $addr (Hereinafter called the "**MORTGAGOR**") OF ONE PART'),
-        ('h', 'AND'),
-        ('p', '**${_v(a, 'bank_name')}** (Hereinafter called the "**MORTGAGEE**") OF OTHER PART.'),
-        ('p',
-            'The Mortgagor has agreed to mortgage Flat No. **$flat**, **$floor** Floor, Wing **$wing**, Building/Tower **$tower** in "**$_project**" as security for the loan amount of **₹ ${_v(a, 'loan_amount')}** sanctioned by the Mortgagee.'),
-      ];
+      return _mortgageDeedBlocks(a, name, age);
     case 'Payment Receipt':
       return [
         ('title', 'PAYMENT RECEIPT'),
@@ -672,12 +797,18 @@ class _DocumentGeneratorPageState extends State<DocumentGeneratorPage> {
   @override
   void initState() {
     super.initState();
-    Api.i.get(Ep.one('${widget.a['id']}')).then((r) {
+    Api.i.get(Ep.one('${widget.a['id']}')).then((r) async {
       final ap = Map<String, dynamic>.from(r['applicant'] ?? {});
       final unit = r['unit'] is Map ? Map<String, dynamic>.from(r['unit']) : <String, dynamic>{};
       final pays = List<Map<String, dynamic>>.from((r['payments'] ?? []).map((e) => Map<String, dynamic>.from(e)));
       final paid = pays.where((p) => p['payment_status'] == 'completed').toList();
       final proj = r['project'] is Map ? Map<String, dynamic>.from(r['project']) : <String, dynamic>{};
+      Map<String, dynamic> deed = {}, sched = {};
+      try {
+        final d = await Api.i.get('/admin/applicants/${widget.a['id']}/mortgage-deed');
+        deed = Map<String, dynamic>.from((d['deed'] as Map?) ?? {});
+        sched = Map<String, dynamic>.from((d['schedule'] as Map?) ?? {});
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _a = {
@@ -696,6 +827,10 @@ class _DocumentGeneratorPageState extends State<DocumentGeneratorPage> {
             'payment_mode': paid.first['payment_method'],
           },
           if (proj['bank_name'] != null) 'bank_name': proj['bank_name'],
+          '_deed': deed,
+          '_schedule': sched,
+          '_unit': unit,
+          '_project': proj,
         };
       });
     }).catchError((_) {});
