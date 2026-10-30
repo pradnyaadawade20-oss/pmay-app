@@ -13,6 +13,8 @@ dependencies:
   provider: ^6.1.2
   flutter_secure_storage: ^9.2.2
   file_picker: 8.3.7
+  image_picker: ^1.1.2
+  image: ^4.1.7
   flutter_cashfree_pg_sdk: ^2.2.10+48
   pdf: ^3.11.1
   printing: ^5.13.2

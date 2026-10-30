@@ -63,3 +63,13 @@ func TestSanitizeRejectsBadValues(t *testing.T) {
 		t.Fatalf("bad checksum accepted: %v", g)
 	}
 }
+
+func TestFatherNameWithoutSurname(t *testing.T) {
+	cases := map[string]string{"parbati yadav": "Parbati", "RAM KUMAR YADAV": "Ram Kumar", "Suresh": "Suresh"}
+	for in, want := range cases {
+		f := sanitize("aadhar_back", map[string]any{"fatherName": in})
+		if f["fatherName"] != want {
+			t.Fatalf("%q -> %q, want %q", in, f["fatherName"], want)
+		}
+	}
+}

@@ -27,8 +27,8 @@ Write all names and the address in English (Latin letters); transliterate Hindi/
 
 var geminiPrompts = map[string]string{
 	"aadhar_front": "This is the FRONT of an Indian Aadhaar card. Extract the holder's name (split into firstName = first word, lastName = last word), date of birth and the 12-digit Aadhaar number. Leave other keys empty.",
-	"aadhar_back":  "This is the BACK of an Indian Aadhaar card. Extract the Aadhaar number, the full address (single line, include PIN code), and the relation: put the name after S/O or D/O in fatherName, the name after W/O in spouseName. Leave other keys empty.",
-	"pan_front":    "This is an Indian PAN card. Extract the PAN number, the holder's name (firstName = first word, lastName = last word), father's name and date of birth. Leave other keys empty.",
+	"aadhar_back":  "This is the BACK of an Indian Aadhaar card. Extract the Aadhaar number, the full address (single line, include PIN code), and the relation: put the name after S/O or D/O in fatherName WITHOUT the surname/family name (given name only, e.g. \"Parbati Yadav\" -> \"Parbati\"), the name after W/O in spouseName. Leave other keys empty.",
+	"pan_front":    "This is an Indian PAN card. Extract the PAN number, the holder's name (firstName = first word, lastName = last word), father's name (given name only, WITHOUT the surname/family name) and date of birth. Leave other keys empty.",
 }
 
 // geminiOnce reads the card image with Google's Gemini vision model and returns validated form fields.
@@ -141,6 +141,14 @@ func sanitize(kind string, in map[string]any) map[string]string {
 			if len(v) > 300 || reAddrBad.MatchString(v) {
 				continue
 			}
+		case "fatherName":
+			if !reNameOK.MatchString(v) {
+				continue
+			}
+			v = withoutSurname(titleCase(v))
+			if v == "" {
+				continue
+			}
 		default: // names
 			if !reNameOK.MatchString(v) {
 				continue
@@ -150,6 +158,16 @@ func sanitize(kind string, in map[string]any) map[string]string {
 		f[k] = v
 	}
 	return f
+}
+
+// withoutSurname drops the last word (surname) of a multi-word name:
+// "Parbati Yadav" -> "Parbati", "Ram Kumar Yadav" -> "Ram Kumar". A single word is kept as is.
+func withoutSurname(name string) string {
+	w := strings.Fields(name)
+	if len(w) > 1 {
+		w = w[:len(w)-1]
+	}
+	return strings.Join(w, " ")
 }
 
 func verhoeffDigits(s string) bool {

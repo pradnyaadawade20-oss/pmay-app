@@ -171,7 +171,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       );
 
   /// File picker row: label + Max size, "Choose File  No file chosen".
-  Widget _upload(String key, String label, String max, {String? note, IconData? icon, Color? tint, Color? border}) {
+  Widget _upload(String key, String label, String max, {String? note, IconData? icon, Color? tint, Color? border, bool photo = false}) {
     final path = _files[key];
     final box = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (note != null)
@@ -187,7 +187,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () async {
-          final p = await pickDoc();
+          final p = photo ? await pickPassportPhoto(context) : await pickDoc();
           if (p != null) {
             setState(() => _files[key] = p);
             _autoFill(key, p);
@@ -332,7 +332,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
                   child: Text('Documents are validated using AI to ensure they match the expected format. This helps speed up verification.',
                       style: TextStyle(color: Colors.black54, fontSize: 13))),
               _upload('passport_photo', 'Passport Size Photo', '2MB',
-                  note: 'Recent passport size photograph with white background', tint: const Color(0xFFEEF3FB), border: kBlue),
+                  note: 'Recent passport size photograph with white background', tint: const Color(0xFFEEF3FB), border: kBlue, photo: true),
               _upload('membership_proof', 'Membership Proof', '5MB',
                   note: 'Dabbewala Association / Charmakar Samaj membership card or receipt',
                   icon: Icons.badge_outlined,

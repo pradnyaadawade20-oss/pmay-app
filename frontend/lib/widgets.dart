@@ -1,7 +1,11 @@
+import 'dart:io' show Directory, File;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'api.dart';
+import 'photo_crop.dart';
 
 void toast(BuildContext c, String msg, {bool error = false}) {
   ScaffoldMessenger.of(c)
@@ -22,6 +26,58 @@ Future<String?> pickDoc() async {
     return WebFiles.put(f.name, f.bytes!);
   }
   return f.path;
+}
+
+/// Passport photo: user picks Camera or Gallery, then crops it (35:45 mm passport ratio).
+/// Returns the local path of the cropped jpg (or null if cancelled).
+Future<String?> pickPassportPhoto(BuildContext context) async {
+  final src = await showModalBottomSheet<ImageSource>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Passport Size Photo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
+        ),
+        ListTile(
+          leading: const Icon(Icons.photo_camera_outlined),
+          title: const Text('Take Photo (Camera)'),
+          onTap: () => Navigator.pop(ctx, ImageSource.camera),
+        ),
+        ListTile(
+          leading: const Icon(Icons.photo_library_outlined),
+          title: const Text('Choose from Gallery'),
+          onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+        ),
+      ]),
+    ),
+  );
+  if (src == null) return null;
+  try {
+    final x = await ImagePicker().pickImage(
+        source: src,
+        maxWidth: 2000,
+        maxHeight: 2000,
+        imageQuality: 90,
+        preferredCameraDevice: CameraDevice.front);
+    if (x == null) return null;
+    final bytes = await x.readAsBytes();
+    if (!context.mounted) return null;
+    // "Crop & Adjust Image" dialog (zoom, rotate, free crop)
+    final jpg = await showCropDialog(context, bytes);
+    if (jpg == null) return null; // user cancelled
+    final name = 'passport_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    if (kIsWeb) return WebFiles.put(name, jpg);
+    final f = File('${Directory.systemTemp.path}/$name');
+    await f.writeAsBytes(jpg, flush: true);
+    return f.path;
+  } catch (e) {
+    if (context.mounted) toast(context, 'Could not open camera/gallery: $e', error: true);
+    return null;
+  }
 }
 
 /// Picks several jpg/png/pdf files at once and returns their local paths (empty when cancelled).
