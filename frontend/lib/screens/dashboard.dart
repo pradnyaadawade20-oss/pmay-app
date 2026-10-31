@@ -455,6 +455,47 @@ class _TrackingScreenState extends State<TrackingScreen> {
   String _name(Map<String, dynamic> a) =>
       '${a['first_name'] ?? ''} ${a['last_name'] ?? ''}'.trim();
 
+  /// "Your Details" card: shown once the application is validated (stage 3 onwards).
+  Widget _detailsCard(Map<String, dynamic> a) {
+    Widget row(String k, String v, {Color? vc}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(k, style: const TextStyle(color: Colors.black54, fontSize: 14)),
+            const SizedBox(width: 16),
+            Flexible(child: Text(v, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: vc ?? Colors.black87))),
+          ]),
+        );
+    Widget verified(bool ok) => Text(ok ? 'Verified' : 'Pending',
+        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: ok ? Colors.green.shade700 : Colors.amber.shade800));
+    Widget vrow(String k, bool ok) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(k, style: const TextStyle(color: Colors.black54, fontSize: 14)),
+            verified(ok),
+          ]),
+        );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Your Details', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        row('Application ID', '${a['unique_id'] ?? '-'}'),
+        row('Name', _name(a)),
+        row('Email', '${a['email'] ?? '-'}'),
+        row('Phone', '${a['phone'] ?? '-'}'),
+        vrow('Email Verified', a['email_verified'] == true),
+        vrow('Phone Verified', a['phone_verified'] == true),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
@@ -484,6 +525,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
           const SizedBox(height: 4),
           const Text("Here's the latest status of your application.", style: TextStyle(color: Colors.black54, fontSize: 15)),
           const SizedBox(height: 16),
+          if (stageNumber(s.stage) >= 3 && a['stage_2_status'] != 'rejected') ...[
+            _detailsCard(a),
+            const SizedBox(height: 16),
+          ],
           _stageCard(s),
           const SizedBox(height: 16),
           _overall(_cur(s)),
