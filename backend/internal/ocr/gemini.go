@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+// ErrTemporary marks a failure that is likely to go away by itself (Google overloaded / 5xx, timeout,
+// network hiccup, empty or unreadable answer). The key pool retries these before giving up.
+var ErrTemporary = errors.New("gemini: temporary problem")
+
 // geminiBase is a variable so tests can point it at a fake server.
 var geminiBase = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -56,7 +60,7 @@ func geminiOnce(ctx context.Context, apiKey, model, kind, mime string, image []b
 	req.Header.Set("x-goog-api-key", apiKey)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("gemini request: %w", err)
+		return nil, fmt.Errorf("%w: request: %v", ErrTemporary, err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -68,6 +72,9 @@ func geminiOnce(ctx context.Context, apiKey, model, kind, mime string, image []b
 			return nil, errQuota
 		case resp.StatusCode == 401 || resp.StatusCode == 403 || (resp.StatusCode == 400 && bytes.Contains(raw, []byte("API_KEY_INVALID"))):
 			return nil, errBadKey
+		}
+		if resp.StatusCode >= 500 || resp.StatusCode == 408 {
+			return nil, fmt.Errorf("%w: gemini %d: %s", ErrTemporary, resp.StatusCode, truncate(string(raw), 300))
 		}
 		return nil, fmt.Errorf("gemini %d: %s", resp.StatusCode, truncate(string(raw), 300))
 	}
@@ -81,13 +88,13 @@ func geminiOnce(ctx context.Context, apiKey, model, kind, mime string, image []b
 		} `json:"candidates"`
 	}
 	if json.Unmarshal(raw, &out) != nil || len(out.Candidates) == 0 || len(out.Candidates[0].Content.Parts) == 0 {
-		return nil, errors.New("gemini: empty response")
+		return nil, fmt.Errorf("%w: empty response", ErrTemporary)
 	}
 	txt := strings.TrimSpace(out.Candidates[0].Content.Parts[0].Text)
 	txt = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(txt, "```json"), "```"), "```")
 	var got map[string]any
 	if err := json.Unmarshal([]byte(strings.TrimSpace(txt)), &got); err != nil {
-		return nil, errors.New("gemini: answer was not JSON")
+		return nil, fmt.Errorf("%w: answer was not JSON", ErrTemporary)
 	}
 	return sanitize(kind, got), nil
 }

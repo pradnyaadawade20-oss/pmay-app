@@ -2,9 +2,11 @@ package ocr
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 const okBody = `{"candidates":[{"content":{"parts":[{"text":"{\"panNumber\":\"ABCDE1234F\"}"}]}}]}`
@@ -75,5 +77,48 @@ func TestModelFallback(t *testing.T) {
 	f, err := p.Extract(context.Background(), "pan_front", "image/png", []byte("x"))
 	if err != nil || f["panNumber"] != "ABCDE1234F" || len(models) != 2 {
 		t.Fatalf("%v %v %v", f, err, models)
+	}
+}
+
+func TestRetriesTemporaryErrors(t *testing.T) {
+	old := retryDelays
+	retryDelays = []time.Duration{time.Millisecond, time.Millisecond}
+	defer func() { retryDelays = old }()
+
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls <= 2 {
+			w.WriteHeader(503) // "model is overloaded"
+			return
+		}
+		w.Write([]byte(okBody))
+	}))
+	defer srv.Close()
+	oldBase := geminiBase
+	geminiBase = srv.URL
+	defer func() { geminiBase = oldBase }()
+
+	p := NewKeyPool([]string{"k"}, "")
+	f, err := p.Extract(context.Background(), "pan_front", "image/png", []byte("x"))
+	if err != nil || f["panNumber"] != "ABCDE1234F" || calls != 3 {
+		t.Fatalf("got %v %v after %d calls", f, err, calls)
+	}
+}
+
+func TestTemporaryErrorGivesUpWithErrTemporary(t *testing.T) {
+	old := retryDelays
+	retryDelays = []time.Duration{time.Millisecond, time.Millisecond}
+	defer func() { retryDelays = old }()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"candidates":[]}`)) }))
+	defer srv.Close()
+	oldBase := geminiBase
+	geminiBase = srv.URL
+	defer func() { geminiBase = oldBase }()
+
+	p := NewKeyPool([]string{"k"}, "")
+	if _, err := p.Extract(context.Background(), "pan_front", "image/png", []byte("x")); !errors.Is(err, ErrTemporary) {
+		t.Fatalf("expected ErrTemporary, got %v", err)
 	}
 }

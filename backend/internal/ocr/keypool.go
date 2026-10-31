@@ -73,7 +73,12 @@ func (p *KeyPool) block(i int, d time.Duration) {
 	p.mu.Unlock()
 }
 
+// retryDelays: pause before the 2nd and 3rd try of the same model after a temporary problem.
+var retryDelays = []time.Duration{time.Second, 3 * time.Second}
+
 // tryModels uses the configured model first, then the built-in fallbacks if Google says the model is unavailable.
+// A temporary problem (overloaded, timeout, empty answer) is retried on the same model, and if it keeps failing
+// the next model is tried before giving up.
 func (p *KeyPool) tryModels(ctx context.Context, key, kind, mime string, image []byte) (map[string]string, error) {
 	models := defaultModels
 	if p.model != "" {
@@ -82,10 +87,26 @@ func (p *KeyPool) tryModels(ctx context.Context, key, kind, mime string, image [
 	var err error
 	for _, m := range models {
 		var f map[string]string
-		if f, err = geminiOnce(ctx, key, m, kind, mime, image); !errors.Is(err, errModel) {
+		for attempt := 0; ; attempt++ {
+			f, err = geminiOnce(ctx, key, m, kind, mime, image)
+			if !errors.Is(err, ErrTemporary) || attempt >= len(retryDelays) {
+				break
+			}
+			log.Printf("ocr: gemini model %q had a temporary problem (%v), retrying", m, err)
+			select {
+			case <-time.After(retryDelays[attempt]):
+			case <-ctx.Done():
+				return nil, err
+			}
+		}
+		switch {
+		case errors.Is(err, errModel):
+			log.Printf("ocr: gemini model %q is not available, trying the next model", m)
+		case errors.Is(err, ErrTemporary):
+			log.Printf("ocr: gemini model %q keeps failing (%v), trying the next model", m, err)
+		default:
 			return f, err
 		}
-		log.Printf("ocr: gemini model %q is not available, trying the next model", m)
 	}
 	return nil, err
 }
