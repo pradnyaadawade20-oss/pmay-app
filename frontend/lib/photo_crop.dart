@@ -290,6 +290,8 @@ class _CropDialogState extends State<_CropDialog> {
                   label: const Text('Cancel')),
               const SizedBox(width: 10),
               FilledButton.icon(
+                // app theme gives FilledButton an infinite min width; override it inside a Row
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                 onPressed: _busy || _imgSize == null ? null : _apply,
                 icon: _busy
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
