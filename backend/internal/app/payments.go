@@ -514,11 +514,16 @@ func (s *Server) adminPayCollectOffline(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	uid := claimsOf(r).Sub
+	// optional form field "mode" (cash | dd | other): shown as the payment mode in Payment Management
+	mode := strings.ToLower(strings.TrimSpace(r.FormValue("mode")))
+	if mode != "cash" && mode != "dd" && mode != "other" {
+		mode = ""
+	}
 	tx, _ := s.db.BeginTx(r.Context(), nil)
 	defer tx.Rollback()
 	var payID string
-	if err := tx.QueryRowContext(r.Context(), `INSERT INTO payments(applicant_id,amount,payment_method,payment_stage,offline_receipt_path,payment_date)
-		VALUES ($1,$2,'offline','booking',$3,current_date) RETURNING id`, id, amount, rel).Scan(&payID); err != nil {
+	if err := tx.QueryRowContext(r.Context(), `INSERT INTO payments(applicant_id,amount,payment_method,payment_stage,offline_receipt_path,payment_date,payment_mode,recorded_by)
+		VALUES ($1,$2,'offline','booking',$3,current_date,NULLIF($4,''),$5::uuid) RETURNING id`, id, amount, rel, mode, uid).Scan(&payID); err != nil {
 		fail(w, 500, "Failed to record payment")
 		return
 	}
@@ -527,6 +532,6 @@ func (s *Server) adminPayCollectOffline(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.notifyPayment(r.Context(), payID, "payment_accepted", "Payment received", "Your payment is confirmed. A unit will be allotted to you soon.")
-	s.audit(r.Context(), uid, "payment_collected_offline", "payment", payID, nil)
+	s.audit(r.Context(), uid, "payment_collected_offline", "payment", payID, M{"mode": mode})
 	writeJSON(w, 201, M{"success": true, "message": "Payment recorded"})
 }
