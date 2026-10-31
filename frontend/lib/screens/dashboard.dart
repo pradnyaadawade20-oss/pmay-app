@@ -398,32 +398,41 @@ class _TrackingScreenState extends State<TrackingScreen> {
                             const SizedBox(width: 6),
                             Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: expanded ? kBlue : Colors.black38),
                           ]),
-                          if (expanded) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: const Color(0xFFEFF3FD), borderRadius: BorderRadius.circular(12)),
-                              child: Row(children: [
-                                Icon(_steps[i].$3, color: kBlue, size: 30),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text(isDone ? '${_steps[i].$1} completed' : _msgs[i].$1,
-                                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kBlue)),
-                                    const SizedBox(height: 2),
-                                    Text(isDone ? 'This step is done.' : _msgs[i].$2, style: const TextStyle(fontSize: 12.5, color: Colors.black54)),
-                                  ]),
-                                ),
-                              ]),
-                            ),
-                          ],
                         ]),
                       ),
                     ),
                   ]),
                 ),
               ),
+              if (expanded)
+                Padding(
+                  padding: const EdgeInsets.only(left: 18),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(left: 33, bottom: 12),
+                    decoration: BoxDecoration(
+                        border: Border(left: BorderSide(width: 2, color: i == _steps.length - 1 ? Colors.transparent : (isDone ? _green : (isCur ? kBlue.withValues(alpha: 0.4) : Colors.black12))))),
+                    child: isCur
+                        ? _stageCard(context.read<AppState>())
+                        : Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: const Color(0xFFEFF3FD), borderRadius: BorderRadius.circular(12)),
+                            child: Row(children: [
+                              Icon(_steps[i].$3, color: kBlue, size: 30),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(isDone ? '${_steps[i].$1} completed' : _msgs[i].$1,
+                                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kBlue)),
+                                  const SizedBox(height: 2),
+                                  Text(isDone ? 'This step is done.' : _msgs[i].$2, style: const TextStyle(fontSize: 12.5, color: Colors.black54)),
+                                ]),
+                              ),
+                            ]),
+                          ),
+                  ),
+                ),
               if (i < _steps.length - 1) const Divider(height: 1, indent: 52),
             ]);
           }),
@@ -529,8 +538,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
             _detailsCard(a),
             const SizedBox(height: 16),
           ],
-          _stageCard(s),
-          const SizedBox(height: 16),
           _overall(_cur(s)),
           const SizedBox(height: 16),
           _stepsList(_cur(s)),
