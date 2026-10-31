@@ -156,56 +156,6 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, M{"success": true})
 }
 
-var bankDocCols = map[string]string{
-	"upi_statement": "upi_statement_path", "itr_year1": "itr_year1_path", "itr_year2": "itr_year2_path",
-	"itr_year3": "itr_year3_path", "bank_statement": "bank_statement_path",
-}
-
-// POST /api/me/bank-documents multipart {upi_statement, itr_year1..3, bank_statement}
-func (s *Server) meBankDocs(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		fail(w, 400, "Invalid form")
-		return
-	}
-	app, ok := s.myApplicant(r)
-	if !ok {
-		fail(w, 404, "Application not found")
-		return
-	}
-	if st := app["registration_stage"].(string); st != "stage_7_bank_document" {
-		fail(w, 409, "Bank documents can only be uploaded at the Bank Documents stage")
-		return
-	}
-	id := app["id"].(string)
-	_, _ = s.db.ExecContext(r.Context(), `INSERT INTO loan_details(applicant_id) VALUES ($1) ON CONFLICT DO NOTHING`, id)
-	n := 0
-	for field, col := range bankDocCols {
-		files := r.MultipartForm.File[field]
-		if len(files) == 0 {
-			continue
-		}
-		rel, err := s.saveFile(r.Context(), id, field, files[0])
-		if err != nil {
-			fail(w, 400, err.Error())
-			return
-		}
-		_, _ = s.db.ExecContext(r.Context(), `INSERT INTO uploads(applicant_id,upload_type,file_name,file_path,file_size,uploaded_by) VALUES ($1,$2,$3,$4,$5,$6)`,
-			id, field, files[0].Filename, rel, files[0].Size, claimsOf(r).Sub)
-		_, _ = s.db.ExecContext(r.Context(), `UPDATE loan_details SET `+col+`=$1, loan_status='pending', verification_notes=NULL, updated_at=now() WHERE applicant_id=$2`, rel, id)
-		n++
-	}
-	if n == 0 {
-		fail(w, 400, "No files received")
-		return
-	}
-	loan, _ := s.one(r.Context(), `SELECT * FROM loan_details WHERE applicant_id=$1`, id)
-	if all, _ := loan["upi_statement_path"].(string); all != "" && loan["itr_year1_path"] != nil && loan["itr_year2_path"] != nil &&
-		loan["itr_year3_path"] != nil && loan["bank_statement_path"] != nil {
-		s.notify(r.Context(), id, "bank_docs_submitted", "Documents submitted", "All bank documents received. They are under review.")
-	}
-	writeJSON(w, 200, M{"success": true, "loan": loan})
-}
-
 var docMinStage = map[string]int{"allotment": 5, "agreement": 5, "bank-loan": 8, "mortgage": 9}
 
 // GET /api/me/documents/{kind}: data for generating the PDF in the app (allotment|agreement|bank-loan|mortgage)

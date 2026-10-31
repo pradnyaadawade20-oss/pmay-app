@@ -15,7 +15,7 @@ func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 		(SELECT count(*) FROM payments WHERE payment_status='pending' AND payment_method='offline'),
 		(SELECT count(*) FROM applicants WHERE registration_stage='stage_6_agreement_receipt'),
 		(SELECT count(*) FROM loan_details l JOIN applicants a ON a.id=l.applicant_id WHERE a.registration_stage='stage_7_bank_document' AND l.loan_status='pending'
-		   AND l.upi_statement_path IS NOT NULL AND l.itr_year1_path IS NOT NULL AND l.itr_year2_path IS NOT NULL AND l.itr_year3_path IS NOT NULL AND l.bank_statement_path IS NOT NULL),
+		   AND l.docs_complete),
 		COALESCE((SELECT count FROM stage_2_daily_counter WHERE date=current_date),0)`).Scan(&pendingVal, &pendingPay, &pendingAgr, &pendingBank, &today)
 	writeJSON(w, 200, M{"success": true, "byStage": byStage, "pendingValidation": pendingVal, "pendingOfflinePayments": pendingPay,
 		"pendingAgreementReceipts": pendingAgr, "pendingBankReviews": pendingBank, "acceptedToday": today, "dailyLimit": 1000})
@@ -237,15 +237,14 @@ func (s *Server) adminBankReview(w http.ResponseWriter, r *http.Request) {
 	tx, _ := s.db.BeginTx(r.Context(), nil)
 	defer tx.Rollback()
 	var all bool
-	err := tx.QueryRowContext(r.Context(), `SELECT (upi_statement_path IS NOT NULL AND itr_year1_path IS NOT NULL AND itr_year2_path IS NOT NULL
-		AND itr_year3_path IS NOT NULL AND bank_statement_path IS NOT NULL) FROM loan_details WHERE applicant_id=$1 FOR UPDATE`, id).Scan(&all)
+	err := tx.QueryRowContext(r.Context(), `SELECT docs_complete FROM loan_details WHERE applicant_id=$1 FOR UPDATE`, id).Scan(&all)
 	if err != nil {
 		fail(w, 404, "No bank documents submitted")
 		return
 	}
 	if in.Action == "accept" {
 		if !all {
-			fail(w, 409, "All 5 documents are required before approval")
+			fail(w, 409, "All required documents must be uploaded before approval")
 			return
 		}
 		_, _ = tx.ExecContext(r.Context(), `UPDATE loan_details SET loan_status='approved', verification_notes=$2, verified_by=$3, verified_at=now() WHERE applicant_id=$1`, id, in.Reason, uid)

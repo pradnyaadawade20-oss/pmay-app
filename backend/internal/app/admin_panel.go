@@ -59,7 +59,7 @@ func (s *Server) panelStats(w http.ResponseWriter, r *http.Request) {
 	_ = s.db.QueryRowContext(r.Context(), `SELECT
 		(SELECT count(*) FROM applicants WHERE registration_stage='stage_6_agreement_receipt'),
 		(SELECT count(*) FROM loan_details l JOIN applicants a ON a.id=l.applicant_id WHERE a.registration_stage='stage_7_bank_document' AND l.loan_status='pending'
-		   AND l.upi_statement_path IS NOT NULL AND l.itr_year1_path IS NOT NULL AND l.itr_year2_path IS NOT NULL AND l.itr_year3_path IS NOT NULL AND l.bank_statement_path IS NOT NULL),
+		   AND l.docs_complete),
 		COALESCE((SELECT count FROM stage_2_daily_counter WHERE date=current_date),0)`).Scan(&pendAgr, &pendBank, &today)
 	writeJSON(w, 200, M{"success": true, "stats": M{"total": total, "pending_review": pending, "pending_payments": payments,
 		"completed": completed, "available_units": units, "by_stage": by,
@@ -76,9 +76,7 @@ func (s *Server) panelApplicants(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.many(r.Context(), `SELECT a.id,a.unique_id,a.first_name,a.last_name,a.email,a.phone,a.email_verified,a.phone_verified,
 		a.registration_stage,a.stage_2_status,a.stage_2_reason,a.stage_4_status,a.stage_4_reason,a.handling_admin_id,a.created_at,a.updated_at,
 		a.pan_number,a.aadhar_number,l.loan_status,
-		(CASE WHEN l.upi_statement_path IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN l.itr_year1_path IS NOT NULL THEN 1 ELSE 0 END +
-		 CASE WHEN l.itr_year2_path IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN l.itr_year3_path IS NOT NULL THEN 1 ELSE 0 END +
-		 CASE WHEN l.bank_statement_path IS NOT NULL THEN 1 ELSE 0 END) AS bank_documents_count,
+		COALESCE(l.docs_count,0) AS bank_documents_count,
 		COALESCE(ur.display_name,'') AS handled_by_name
 		FROM applicants a LEFT JOIN loan_details l ON l.applicant_id=a.id LEFT JOIN LATERAL (SELECT display_name FROM user_roles WHERE user_id=a.handling_admin_id LIMIT 1) ur ON true
 		WHERE ($1='' OR a.registration_stage=$1)
