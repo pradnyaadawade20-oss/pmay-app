@@ -1,9 +1,13 @@
 package app
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"log"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -70,32 +74,104 @@ func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	files := r.MultipartForm.File["file"]
-	if len(files) == 0 || files[0].Size > 5<<20 {
+	if len(files) == 0 {
 		fail(w, 400, "An image up to 5MB is required")
 		return
 	}
-	ext := strings.ToLower(filepath.Ext(files[0].Filename))
-	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-		fail(w, 400, "Only JPG or PNG images can be read")
+	fields, code, msg := s.docFields(r.Context(), kind, files[0])
+	if code != 0 {
+		fail(w, code, msg)
 		return
 	}
-	src, err := files[0].Open()
+	writeJSON(w, 200, M{"success": true, "fields": fields})
+}
+
+// Results are remembered by file content, so the scan done while filling the form and the check done on
+// submit always see the same answer (and a registration does not cost a second round of Gemini calls).
+const (
+	ocrCacheTTL = 6 * time.Hour
+	ocrCacheMax = 300
+)
+
+type ocrCacheEntry struct {
+	fields map[string]string
+	at     time.Time
+}
+
+var ocrCache = struct {
+	sync.Mutex
+	m map[string]ocrCacheEntry
+}{m: map[string]ocrCacheEntry{}}
+
+func copyFields(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func ocrCacheGet(key string) (map[string]string, bool) {
+	ocrCache.Lock()
+	defer ocrCache.Unlock()
+	e, ok := ocrCache.m[key]
+	if !ok || time.Since(e.at) > ocrCacheTTL {
+		delete(ocrCache.m, key)
+		return nil, false
+	}
+	return copyFields(e.fields), true
+}
+
+func ocrCachePut(key string, fields map[string]string) {
+	ocrCache.Lock()
+	defer ocrCache.Unlock()
+	if len(ocrCache.m) >= ocrCacheMax {
+		for k, e := range ocrCache.m {
+			if time.Since(e.at) > ocrCacheTTL {
+				delete(ocrCache.m, k)
+			}
+		}
+		if len(ocrCache.m) >= ocrCacheMax {
+			ocrCache.m = map[string]ocrCacheEntry{}
+		}
+	}
+	ocrCache.m[key] = ocrCacheEntry{fields: copyFields(fields), at: time.Now()}
+}
+
+// docFields reads one Aadhaar / PAN image (kind = aadhar_front | aadhar_back | pan_front).
+// On failure it returns an HTTP status and a message that is safe to show to the user.
+func (s *Server) docFields(ctx context.Context, kind string, fh *multipart.FileHeader) (map[string]string, int, string) {
+	if fh.Size > 5<<20 {
+		return nil, 400, "An image up to 5MB is required"
+	}
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+		return nil, 400, "Only JPG or PNG images can be read"
+	}
+	src, err := fh.Open()
 	if err != nil {
-		fail(w, 400, "Cannot read file")
-		return
+		return nil, 400, "Cannot read file"
 	}
 	defer src.Close()
+	raw, err := io.ReadAll(io.LimitReader(src, 5<<20+1))
+	if err != nil || len(raw) > 5<<20 {
+		return nil, 400, "Cannot read file"
+	}
+	sum := sha256.Sum256(raw)
+	key := kind + ":" + hex.EncodeToString(sum[:])
+	if f, ok := ocrCacheGet(key); ok {
+		return f, 0, ""
+	}
+
 	tmp, err := os.CreateTemp("", "ocr-*"+ext)
 	if err != nil {
-		fail(w, 500, "Server error")
-		return
+		return nil, 500, "Server error"
 	}
 	defer os.Remove(tmp.Name())
-	_, err = io.Copy(tmp, src)
+	_, err = tmp.Write(raw)
 	tmp.Close()
 	if err != nil {
-		fail(w, 500, "Server error")
-		return
+		return nil, 500, "Server error"
 	}
 	path, mime := tmp.Name(), "image/png"
 	if ext != ".png" {
@@ -108,20 +184,20 @@ func (s *Server) ocrExtract(w http.ResponseWriter, r *http.Request) {
 	}
 	img, err := os.ReadFile(path)
 	if err != nil {
-		fail(w, 500, "Server error")
-		return
+		return nil, 500, "Server error"
 	}
-	fields, err := s.geminiPool().Extract(r.Context(), kind, mime, img)
+	fields, err := s.geminiPool().Extract(ctx, kind, mime, img)
 	if err != nil {
 		log.Println("ocr: gemini failed:", err)
 		if errors.Is(err, ocr.ErrAllKeysExhausted) {
-			fail(w, 503, "Document reading is busy right now. Please type the details.")
-			return
+			return nil, 503, "Document reading is busy right now. Please type the details."
 		}
-		fail(w, 502, "Could not read the image")
-		return
+		return nil, 502, "Could not read the image"
 	}
-	writeJSON(w, 200, M{"success": true, "fields": fields})
+	if len(fields) > 0 { // an unreadable photo is not remembered, so a retry really retries
+		ocrCachePut(key, fields)
+	}
+	return fields, 0, ""
 }
 
 var (

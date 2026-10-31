@@ -81,6 +81,14 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// the typed details must match the uploaded Aadhaar / PAN images (cannot be edited after the scan)
+	if code, msg := s.verifyDocuments(r.Context(), r, docForm{
+		First: f("firstName"), Last: f("lastName"), Father: f("fatherName"), Spouse: f("spouseName"),
+		DOB: f("dateOfBirth"), Address: f("fullAddress"), Aadhar: aadhar, PAN: pan,
+	}); code != 0 {
+		fail(w, code, msg)
+		return
+	}
 	co := f("hasCoApplicant") == "true"
 
 	tx, err := s.db.BeginTx(r.Context(), nil)
