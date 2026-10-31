@@ -6,6 +6,7 @@ import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'cheque_payment_dialog.dart';
+import 'collect_payment_dialog.dart';
 import 'payments.dart';
 
 /// Price of one unit per applicant (Rs 25,50,000 = 25.5 L). Change here if it differs.
@@ -228,11 +229,34 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
       if (saved == true) _load();
     }
 
+    // Collect Payment: online (Cashfree) or cash (receipt upload)
+    Future<void> collect(Map a, {required bool offline}) async {
+      final uid = '${a['unique_id'] ?? ''}';
+      final paid = _all.where((p) => _uid(p) == uid && _paid(p)).fold<num>(0, (s, p) => s + _amt(p));
+      final saved = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => CollectPaymentDialog(
+          applicant: {
+            'id': a['id'],
+            'unique_id': uid,
+            'applicant_name': '${a['first_name'] ?? ''} ${a['last_name'] ?? ''}'.trim(),
+            'email': a['email'],
+            'phone': a['phone'],
+            'paid': paid,
+          },
+          totalCost: kUnitPrice,
+          startOffline: offline,
+        ),
+      );
+      if (saved == true) _load();
+    }
+
     final people = _awaiting;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _section(
         'Applicants awaiting payment',
-        'Documents are verified. Record the payment (cheque photo) when it is received - the applicant then moves to allotment.',
+        'Documents are verified. Collect the booking payment online (Cashfree), in cash, or record a cheque - the applicant then moves to allotment.',
         people.isEmpty
             ? const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: EmptyState(icon: Icons.check_circle_outline_rounded, title: 'All caught up', sub: 'No applicant is waiting for payment'))
             : Column(children: [
@@ -252,10 +276,27 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
                       const Pill('Awaiting payment', kOrange),
                       const SizedBox(width: 12),
                       if (Api.i.canPayments)
-                        FilledButton.icon(
-                          onPressed: () => record('${a['id']}'),
-                          icon: const Icon(Icons.add_card_rounded, size: 18),
-                          label: const Text('Record cheque'),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 420),
+                          child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.end, children: [
+                            FilledButton.icon(
+                              onPressed: () => collect(a, offline: false),
+                              icon: const Icon(Icons.credit_card_rounded, size: 18),
+                              label: const Text('Online'),
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: kInk),
+                              onPressed: () => collect(a, offline: true),
+                              icon: const Icon(Icons.payments_outlined, size: 18),
+                              label: const Text('Cash'),
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: kInk),
+                              onPressed: () => record('${a['id']}'),
+                              icon: const Icon(Icons.add_card_rounded, size: 18),
+                              label: const Text('Cheque'),
+                            ),
+                          ]),
                         ),
                     ]),
                   ),

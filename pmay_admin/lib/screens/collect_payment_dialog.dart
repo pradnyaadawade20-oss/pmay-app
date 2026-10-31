@@ -113,7 +113,7 @@ class _CollectPaymentDialogState extends State<CollectPaymentDialog> {
 
     try {
       await Api.i.postMultipart(Ep.collectOffline,
-          fields: {'applicant_id': '${widget.applicant['id']}', 'amount': _amt.toStringAsFixed(0)},
+          fields: {'applicant_id': '${widget.applicant['id']}', 'amount': _amt.toStringAsFixed(0), 'mode': 'cash'},
           fileField: 'receipt',
           fileName: _fileName,
           fileBytes: _fileBytes);
@@ -230,8 +230,8 @@ class _CollectPaymentDialogState extends State<CollectPaymentDialog> {
             _methodTile(
               selected: !_online,
               icon: Icons.account_balance_outlined,
-              title: 'Offline Receipt',
-              sub: 'Upload Cheque/DD/Cash receipt',
+              title: 'Cash (Offline Receipt)',
+              sub: 'Cash received - upload the receipt as proof',
               onTap: _busy ? () {} : () => setState(() => _online = false),
             ),
             if (!_online) ...[
