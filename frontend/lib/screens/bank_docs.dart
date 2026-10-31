@@ -12,35 +12,41 @@ class _Doc {
 }
 
 const _common = [
-  _Doc('pan_card', 'PAN Card (mandatory)'),
-  _Doc('identity_proof', 'Identity Proof (Aadhaar / Passport / Voter ID / Driving License)'),
-  _Doc('address_proof', 'Address Proof (Aadhaar / Passport / Voter ID / Driving License / Utility Bill / Rent Agreement)'),
-  _Doc('photographs', 'Passport-size Photographs (2–4)'),
+  _Doc('pan_card', 'PAN Card'),
+  _Doc('identity_proof', 'Identity Proof'),
+  _Doc('address_proof', 'Address Proof'),
+  _Doc('photographs', 'Photographs'),
 ];
 
 const _profiles = <String, (String, List<_Doc>)>{
   'salaried': ('Salaried Person', [
-    _Doc('salary_slips', 'Last 6 months\' salary slips'),
-    _Doc('salary_bank_statement', 'Last 12 months\' bank statements (salary account)'),
-    _Doc('form16_itr', 'Form 16 or ITR (last 2/3 years)'),
-    _Doc('appointment_letter', 'Appointment / Confirmation Letter'),
+    _Doc('salary_slips', 'Salary Slips (6 months)'),
+    _Doc('salary_bank_statement', 'Bank Statement (12 months)'),
+    _Doc('form16_itr', 'Form 16 / ITR'),
+    _Doc('appointment_letter', 'Appointment Letter'),
   ]),
   'business': ('Business Person', [
-    _Doc('business_bank_statement', 'Last 12 months current account statements (business)'),
-    _Doc('business_registration', 'GST Registration / Shop & Establishment License'),
-    _Doc('entity_proof', 'Partnership Deed / Incorporation Certificate / Udyam Registration'),
-    _Doc('profit_loss', 'Profit & Loss Account (last 2–3 years, CA audited)'),
-    _Doc('balance_sheet', 'Balance Sheet (last 2–3 years, CA audited)'),
-    _Doc('business_itr', 'Income Tax Returns (last 2–3 years)'),
+    _Doc('business_bank_statement', 'Business Bank Statement'),
+    _Doc('business_registration', 'GST / Shop License'),
+    _Doc('entity_proof', 'Business Entity Proof'),
+    _Doc('profit_loss', 'Profit & Loss Account'),
+    _Doc('balance_sheet', 'Balance Sheet'),
+    _Doc('business_itr', 'ITR (2–3 years)'),
   ]),
   'nip': ('NIP (Non Income Proof)', [
-    _Doc('nip_bank_statement', 'Bank statements (last 12 months) showing regular transactions'),
+    _Doc('nip_bank_statement', 'Bank Statement (12 months)'),
     _Doc('salary_certificate', 'Salary Certificate'),
-    _Doc('employer_certificate', 'Employer\'s certificate confirming monthly payment (signed)'),
-    _Doc('rental_income_proof', 'Rental / other income proof (if any)', required: false),
-    _Doc('shop_license', 'Shop & Establishment License'),
-    _Doc('business_place_photos', 'Photos of business proof / business place'),
+    _Doc('employer_certificate', 'Employer Certificate'),
+    _Doc('rental_income_proof', 'Rental Income Proof', required: false),
+    _Doc('shop_license', 'Shop License'),
+    _Doc('business_place_photos', 'Business Place Photos'),
   ]),
+};
+
+const _hints = {
+  'salaried': 'Identity/Address proof: Aadhaar, Passport, Voter ID or Driving License (address: or Utility Bill / Rent Agreement). Photographs: 2–4 passport size. Bank/ITR: last 12 months / 2–3 years.',
+  'business': 'Identity/Address proof: Aadhaar, Passport, Voter ID or Driving License (address: or Utility Bill / Rent Agreement). Entity proof: Partnership Deed / Incorporation / Udyam. Financials: last 2–3 years, CA audited.',
+  'nip': 'Identity/Address proof: Aadhaar, Passport, Voter ID or Driving License (address: or Utility Bill / Rent Agreement). Photographs: 2–4 passport size. Rental income proof is optional.',
 };
 
 class BankDocsCard extends StatefulWidget {
@@ -101,6 +107,10 @@ class _BankDocsCardState extends State<BankDocsCard> {
               },
       ),
       const SizedBox(height: 12),
+      if (profile != null)
+        Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(_hints[profile]!, style: const TextStyle(fontSize: 12, color: Colors.black54))),
       if (profile == null)
         const Text('Choose Salaried, Business or NIP to see the documents the bank needs.')
       else ...[
