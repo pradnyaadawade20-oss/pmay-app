@@ -110,19 +110,21 @@ class _BankDocsCardState extends State<BankDocsCard> {
       if (profile != null)
         Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(_hints[profile]!, style: const TextStyle(fontSize: 12, color: Colors.black54))),
+            child: Text('JPG / PNG / PDF. ${_hints[profile]!}', style: const TextStyle(fontSize: 12, color: Colors.black54))),
       if (profile == null)
         const Text('Choose Salaried, Business or NIP to see the documents the bank needs.')
       else ...[
-        for (final d in docs)
-          UploadTile(
-              label: d.required ? d.label : '${d.label} – optional',
+        for (final d in docs) ...[
+          _DocRow(
+              label: d.required ? d.label : '${d.label} (optional)',
               path: picked[d.key],
               uploaded: saved[d.key] != null && status != 'rejected',
               onPick: () async {
                 final f = await pickDoc();
                 if (f != null) state.pickBankDoc(d.key, f);
               }),
+          const Divider(height: 1),
+        ],
         const SizedBox(height: 8),
         SizedBox(
             width: double.infinity,
@@ -135,5 +137,40 @@ class _BankDocsCardState extends State<BankDocsCard> {
               child: Text('Once all ${docs.where((d) => d.required).length} required documents are uploaded, our team will review them.')),
       ],
     ]);
+  }
+}
+
+/// Compact one-line row (label + Choose/Change), so long cards don't wrap on phones.
+class _DocRow extends StatelessWidget {
+  final String label;
+  final String? path;
+  final bool uploaded;
+  final VoidCallback onPick;
+  const _DocRow({required this.label, required this.onPick, this.path, this.uploaded = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final done = path != null || uploaded;
+    final blue = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onPick,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(children: [
+          Icon(done ? Icons.check_circle : Icons.upload_file, size: 20, color: done ? Colors.green : Colors.black45),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              if (done)
+                Text(path != null ? path!.split('/').last : 'Uploaded',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          Text(done ? 'Change' : 'Choose', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: blue)),
+        ]),
+      ),
+    );
   }
 }
