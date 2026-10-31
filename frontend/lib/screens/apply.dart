@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../api.dart' show ApiException;
 import '../state.dart';
 import '../theme.dart';
 import 'otp.dart';
@@ -28,6 +30,15 @@ class _ApplyScreenState extends State<ApplyScreen> {
       k: TextEditingController()
   };
   String? _blood, _adminId;
+  final _keys = <String, GlobalKey>{}; // one key per field, used to scroll to the first problem
+  GlobalKey _k(String name) => _keys.putIfAbsent(name, () => GlobalKey());
+
+  void _scrollTo(String name) {
+    final ctx = _keys[name]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx, alignment: 0.15, duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+    }
+  }
   final _files = <String, String?>{
     'aadhar_front': null, 'aadhar_back': null, 'pan_front': null, 'passport_photo': null, 'membership_proof': null
   };
@@ -79,9 +90,12 @@ class _ApplyScreenState extends State<ApplyScreen> {
           content: Text(filled > 0
               ? '$filled field(s) filled from your document. Please check them.'
               : 'Could not read details from this image. Please type them.')));
-    } catch (_) {
+    } catch (e) {
       sm.hideCurrentSnackBar();
-      sm.showSnackBar(const SnackBar(content: Text('Could not read this document automatically. Please type the details.')));
+      // show the real reason (rate limit, Gemini busy, wrong file type, no internet...)
+      final why = e is ApiException ? e.message : 'check your internet connection';
+      sm.showSnackBar(SnackBar(
+          duration: const Duration(seconds: 7), content: Text('Could not read this document automatically: $why. Please type the details.')));
     }
   }
 
@@ -130,6 +144,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
           bool readOnly = false,
           String? helper}) =>
       Padding(
+        key: _k(key),
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _label(label, req: req),
@@ -140,7 +155,15 @@ class _ApplyScreenState extends State<ApplyScreen> {
               readOnly: readOnly,
               maxLines: obscure ? 1 : maxLines,
               maxLength: maxLen,
-              decoration: _dec(hint, suffix: suffix).copyWith(counterText: ''),
+              // number / phone / email boxes: no autocorrect or suggestions (they break backspace on some keyboards)
+              autocorrect: !(type == TextInputType.phone || type == TextInputType.number || type == TextInputType.emailAddress),
+              enableSuggestions: !(type == TextInputType.phone || type == TextInputType.number || type == TextInputType.emailAddress),
+              inputFormatters: (type == TextInputType.phone || type == TextInputType.number) && !readOnly
+                  ? [FilteringTextInputFormatter.digitsOnly]
+                  : null,
+              // locked field (e.g. email of the logged-in account) looks greyed out with a lock
+              decoration: _dec(hint, suffix: suffix ?? (readOnly ? const Icon(Icons.lock_outline, size: 18) : null))
+                  .copyWith(counterText: '', fillColor: readOnly ? const Color(0xFFE9ECF1) : null),
               validator: validator ?? (req ? _req : null)),
           if (helper != null)
             Padding(
@@ -150,6 +173,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       );
 
   Widget _dateField(String key, String label, {bool req = true}) => Padding(
+        key: _k(key),
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _label(label, req: req),
@@ -242,6 +266,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       );
 
   Widget _adminBox() => Container(
+        key: _k('admin'),
         margin: const EdgeInsets.only(top: 4, bottom: 4),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -267,9 +292,38 @@ class _ApplyScreenState extends State<ApplyScreen> {
       );
 
   // ---------- submit ----------
+  /// Required fields that are empty or invalid, in the order they appear on the form: (field key, label).
+  List<(String, String)> _problems() {
+    String t(String k) => _c[k]!.text.trim();
+    final loggedIn = context.read<AppState>().loggedIn;
+    return [
+      if (_admins.isNotEmpty && _adminId == null) ('admin', 'Select Admin Helping You'),
+      if (t('firstName').isEmpty) ('firstName', 'First Name'),
+      if (t('lastName').isEmpty) ('lastName', 'Last Name'),
+      if (t('fatherName').isEmpty) ('fatherName', "Father's Name"),
+      if (t('dateOfBirth').isEmpty) ('dateOfBirth', 'Date of Birth'),
+      if (_hasCo) ...[
+        if (t('coApplicantName').isEmpty) ('coApplicantName', 'Co-applicant Name'),
+        if (t('coApplicantRelation').isEmpty) ('coApplicantRelation', 'Co-applicant Relation'),
+        if (t('coApplicantDob').isEmpty) ('coApplicantDob', 'Co-applicant Date of Birth'),
+        if (t('coApplicantAadhar').isEmpty) ('coApplicantAadhar', 'Co-applicant Aadhaar'),
+        if (t('coApplicantPan').isEmpty) ('coApplicantPan', 'Co-applicant PAN'),
+        if (t('coApplicantPhone').isEmpty) ('coApplicantPhone', 'Co-applicant Phone'),
+      ],
+      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t('email'))) ('email', 'Email'),
+      if (!RegExp(r'^\d{10}$').hasMatch(t('phone'))) ('phone', 'Mobile Number (10 digits)'),
+      if (t('fullAddress').isEmpty) ('fullAddress', 'Full Address'),
+      if (!RegExp(r'^\d{12}$').hasMatch(t('aadharNumber'))) ('aadharNumber', 'Aadhar Number (12 digits)'),
+      if (!RegExp(r'^[A-Za-z]{5}[0-9]{4}[A-Za-z]$').hasMatch(t('panNumber'))) ('panNumber', 'PAN Number'),
+      if (!loggedIn && t('password').isEmpty) ('password', 'Password'),
+    ];
+  }
+
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) {
-      toast(context, 'Please fill all required fields', error: true);
+      final p = _problems();
+      toast(context, p.isEmpty ? 'Please fill all required fields' : 'Please fill: ${p.map((e) => e.$2).join(', ')}', error: true);
+      if (p.isNotEmpty) _scrollTo(p.first.$1); // jump to the first field that needs attention
       return;
     }
     if (_files.values.any((v) => v == null)) {
@@ -373,6 +427,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
               _field('email', 'Email',
                   type: TextInputType.emailAddress,
                   readOnly: context.read<AppState>().loggedIn,
+                  helper: context.read<AppState>().loggedIn ? 'You are logged in with this email, so it cannot be changed here.' : null,
                   validator: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v ?? '') ? null : 'Enter valid email'),
               _field('phone', 'Mobile Number',
                   hint: '10 digit number',
