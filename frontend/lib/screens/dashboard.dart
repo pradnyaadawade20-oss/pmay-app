@@ -212,7 +212,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
-  // ---------- progress (9 steps) ----------
+  // ---------- progress (10 steps) ----------
   static const _steps = [
     ('Registration', 'Account & Documents', Icons.person_outline),
     ('Validation', 'Document Verification', Icons.fact_check_outlined),
@@ -221,8 +221,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ('Agreement', 'Agreement Registration', Icons.description_outlined),
     ('Agreement Receipt', 'Upload Signed Agreement', Icons.upload_outlined),
     ('Bank Documents', 'Bank Document Submission', Icons.account_balance_outlined),
-    ('Possession', 'Final Possession', Icons.vpn_key_outlined),
-    ('Closure', 'Application Closure', Icons.verified_user_outlined),
+    ('Bank Loan', 'Bank Loan Form', Icons.request_quote_outlined),
+    ('Mortgage', 'Mortgage Deed', Icons.gavel_outlined),
+    ('Completed', 'Registration Completed', Icons.verified_user_outlined),
   ];
   static const _msgs = [
     ('Registration in progress', 'Complete your account and documents.'),
@@ -232,18 +233,17 @@ class _TrackingScreenState extends State<TrackingScreen> {
     ('Your agreement is ready.', 'Download, sign and upload it.'),
     ('Your signed agreement is under review.', 'You will be notified after approval.'),
     ('Bank documents required.', 'Upload all documents for your home loan.'),
-    ('Possession in progress.', 'Loan and mortgage formalities are being completed.'),
-    ('Closing your application.', 'Almost done!'),
+    ('Bank loan in progress.', 'Submit the loan form at your bank and upload the receipt.'),
+    ('Mortgage in progress.', 'Sign the mortgage deed and upload the receipt.'),
+    ('Completing your registration.', 'Almost done!'),
   ];
   static const _green = Color(0xFF2E9E4F);
   int? _open; // null = follow current step
 
-  /// Current step number (1..9); 10 = everything done.
+  /// Current step number (1..10); 11 = everything done.
   int _cur(AppState s) {
     final n = stageNumber(s.stage);
-    if (n >= 10) return 10;
-    if (n >= 8) return 8;
-    return n;
+    return n >= 10 ? 11 : n;
   }
 
   Widget _pill(String text, Color fg, Color bg) => Container(
@@ -291,9 +291,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
       );
 
   Widget _overall(int cur) {
-    final done = (cur - 1).clamp(0, 9); // steps fully completed
-    final pct = cur > 9 ? 100 : (cur / 9 * 100).floor();
-    final start = (cur - 4).clamp(0, 2); // 7-dot window like the design
+    final pct = cur > 10 ? 100 : (cur / 10 * 100).floor();
+    final start = (cur - 4).clamp(0, 3); // 7-dot window like the design
     final dots = <Widget>[];
     for (var k = start; k < start + 7; k++) {
       final n = k + 1;
@@ -307,7 +306,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
               decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: isCur ? kBlue : Colors.black26, width: 2)),
               child: isCur ? const Center(child: CircleAvatar(radius: 5, backgroundColor: kBlue)) : null));
     }
-    final shown = cur > 9 ? 9 : cur;
+    final shown = cur > 10 ? 10 : cur;
     return _cardBox(
       padding: const EdgeInsets.fromLTRB(20, 18, 16, 16),
       child: Row(children: [
@@ -318,7 +317,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             Row(children: dots),
             const SizedBox(height: 10),
             Text.rich(TextSpan(children: [
-              TextSpan(text: '${cur > 9 ? 9 : shown} of 9 steps', style: const TextStyle(color: kBlue, fontWeight: FontWeight.w600)),
+              TextSpan(text: '$shown of 10 steps', style: const TextStyle(color: kBlue, fontWeight: FontWeight.w600)),
               const TextSpan(text: ' completed', style: TextStyle(color: Colors.black54)),
             ]), style: const TextStyle(fontSize: 13)),
           ]),
@@ -353,7 +352,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Widget _stepsList(int cur) {
-    final open = _open ?? (cur > 9 ? 0 : cur);
+    final open = _open ?? (cur > 10 ? 0 : cur);
     return _cardBox(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       child: Column(children: [

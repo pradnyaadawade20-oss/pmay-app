@@ -160,19 +160,21 @@ class InfoCard extends StatelessWidget {
       );
 }
 
-/// Website ka "Registration Process" section (8 stages) – Home screen par sirf info.
+/// "Registration Process" section (10 steps, same order as the Tracking screen) – Home screen, info only.
 class RegistrationProcess extends StatelessWidget {
   const RegistrationProcess({super.key});
 
   static const _steps = [
     (Icons.how_to_reg_rounded, 'Registration', 'Submit personal details & documents'),
-    (Icons.verified_user_rounded, 'Verification', 'Aadhar & PAN verification'),
     (Icons.fact_check_rounded, 'Validation', 'Admin validates documents'),
-    (Icons.payments_rounded, 'Payment', 'Online/Offline payment'),
+    (Icons.payments_rounded, 'Payment', 'Booking payment'),
     (Icons.home_work_rounded, 'Allotment', 'Unit allocation'),
     (Icons.draw_rounded, 'Agreement', 'Sign Agreement of Sale'),
-    (Icons.account_balance_rounded, 'Bank Loan', 'Loan processing'),
-    (Icons.key_rounded, 'Possession', 'Final handover'),
+    (Icons.upload_file_rounded, 'Agreement Receipt', 'Upload the signed agreement'),
+    (Icons.account_balance_rounded, 'Bank Document', 'Submit bank documents'),
+    (Icons.request_quote_rounded, 'Bank Loan', 'Loan processing'),
+    (Icons.gavel_rounded, 'Mortgage', 'Sign the mortgage deed'),
+    (Icons.verified_user_rounded, 'Completed', 'Registration completed'),
   ];
   // "Soft Blue + White" theme
   static const _accent = Color(0xFF2272D6);
@@ -228,7 +230,7 @@ class RegistrationProcess extends StatelessWidget {
           height: 4,
           decoration: BoxDecoration(color: const Color(0xFFF57C20), borderRadius: BorderRadius.circular(4))),
       const SizedBox(height: 12),
-      const Text('Simple 8-stage process from registration to possession',
+      const Text('Simple 10-step process from registration to completion',
           textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, color: Colors.black54)),
       const SizedBox(height: 18),
       for (var r = 0; r < _steps.length; r += 2) ...[
