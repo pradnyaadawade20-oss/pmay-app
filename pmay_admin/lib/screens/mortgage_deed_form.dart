@@ -308,6 +308,10 @@ class _MortgageDeedDialogState extends State<MortgageDeedDialog> {
       final p = Map<String, dynamic>.from((r['project'] as Map?) ?? {});
       init['bank_name'] = p['bank_name'] ?? '';
       init['bank_branch'] = p['bank_branch'] ?? '';
+      final now = DateTime.now();
+      init['exec_date'] = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      init['exec_place'] = 'Kalyan';
+      init['ownership_by'] = 'Agreement of Sale executed with M/S. PRIYANKA HOME REALTORS PVT LTD';
       init['loan_purpose'] = 'Purchase of flat';
       init['installment_type'] = 'monthly';
       final d = await Api.i.get(_deedEp(widget.id));

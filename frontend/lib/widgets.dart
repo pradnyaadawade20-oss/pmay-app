@@ -101,8 +101,9 @@ class UploadTile extends StatelessWidget {
   final String? path; // locally picked
   final bool uploaded; // already on server
   final VoidCallback onPick;
+  final bool showFormatHint; // the "JPG / PNG / PDF" line shown while nothing is chosen
   const UploadTile(
-      {super.key, required this.label, required this.onPick, this.path, this.uploaded = false});
+      {super.key, required this.label, required this.onPick, this.path, this.uploaded = false, this.showFormatHint = true});
 
   @override
   Widget build(BuildContext context) {
@@ -113,11 +114,13 @@ class UploadTile extends StatelessWidget {
             picked || uploaded ? Icons.check_circle : Icons.upload_file,
             color: picked || uploaded ? Colors.green : null),
         title: Text(label),
-        subtitle: Text(picked
-            ? path!.split('/').last
+        subtitle: picked
+            ? Text(path!.split('/').last)
             : uploaded
-                ? 'Uploaded'
-                : 'JPG / PNG / PDF'),
+                ? const Text('Uploaded')
+                : showFormatHint
+                    ? const Text('JPG / PNG / PDF')
+                    : null,
         trailing: TextButton(onPressed: onPick, child: Text(picked || uploaded ? 'Change' : 'Choose')),
       ),
     );
