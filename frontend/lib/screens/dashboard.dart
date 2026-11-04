@@ -189,8 +189,15 @@ class _TrackingScreenState extends State<TrackingScreen> {
         return const _StatusCard(icon: Icons.account_balance, color: Colors.blue, title: 'Bank documents',
             message: 'Upload all documents required for your home loan.', children: [BankDocsCard()]);
       case 'stage_8_bank_loan':
+        if (a['bank_loan_status'] == 'submitted') {
+          // the receipt is uploaded; the next step opens only after an admin approves it
+          return const _StatusCard(icon: Icons.hourglass_top, color: Colors.orange, title: 'Bank loan under review',
+              message: 'Admin is verifying your bank loan receipt. You will be notified once it is approved.');
+        }
         return _StatusCard(icon: Icons.account_balance, color: Colors.blue, title: 'Bank loan form',
-            message: 'Download the form, submit it at your bank and upload the receipt.', children: [
+            message: a['bank_loan_status'] == 'rejected'
+                ? 'Rejected: ${a['bank_loan_reason'] ?? ''}. Please upload again.'
+                : 'Download the form, submit it at your bank and upload the receipt.', children: [
           OutlinedButton.icon(onPressed: () => _doc('bank-loan'), icon: const Icon(Icons.download), label: const Text('Download loan form')),
           FilledButton.icon(onPressed: _busy ? null : () => _eSign('bank-loan', 'bank_loan_receipt'), icon: const Icon(Icons.draw), label: const Text('E-sign loan form')),
           FilledButton.icon(onPressed: _busy ? null : () => _upload('bank_loan_receipt'), icon: const Icon(Icons.upload_file), label: const Text('Upload loan receipt')),

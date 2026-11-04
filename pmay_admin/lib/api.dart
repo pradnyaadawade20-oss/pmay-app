@@ -26,6 +26,7 @@ class Ep {
   static const systemStatus = '/admin/system-status'; // GET -> {status:{database,storage,email,push,ocr:{ok,detail}}}
   static String agreementReview(String id) => '/admin/applicants/$id/agreement-review'; // POST {action: accept|reject, reason}
   static String bankReview(String id) => '/admin/applicants/$id/bank-review'; // POST {action: accept|reject, reason}
+  static String loanReview(String id) => '/admin/applicants/$id/loan-review'; // POST {action: accept|reject, reason} (bank loan receipt, stage 8)
   static String review(String id) => '/admin/applicants/$id/review'; // POST {decision, reason}
   static String doc(String id, String kind) => '/admin/applicants/$id/documents/$kind'; // file bytes (image / PDF)
   static const units = '/admin/units'; // GET -> {units:[{id,unit_number,tower,wing,floor,carpet_area,amount,status,allotted_to}]}

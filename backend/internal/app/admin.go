@@ -269,6 +269,41 @@ func (s *Server) adminBankReview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, M{"success": true})
 }
 
+// POST /api/admin/applicants/{id}/loan-review  accept: 8 -> 9 (mortgage); reject: stays at 8 so the applicant uploads the receipt again.
+// Only a receipt the applicant has submitted can be reviewed.
+func (s *Server) adminLoanReview(w http.ResponseWriter, r *http.Request) {
+	var in reviewIn
+	if !decode(r, &in) || (in.Action != "accept" && in.Action != "reject") {
+		fail(w, 400, "action must be accept or reject")
+		return
+	}
+	id, uid := r.PathValue("id"), claimsOf(r).Sub
+	q := `UPDATE applicants SET bank_loan_status='accepted', bank_loan_reason=NULL, registration_stage='stage_9_mortgage', updated_at=now()
+		WHERE id=$1 AND registration_stage='stage_8_bank_loan' AND bank_loan_status='submitted'`
+	args := []any{id}
+	if in.Action == "reject" {
+		q = `UPDATE applicants SET bank_loan_status='rejected', bank_loan_reason=$2, updated_at=now()
+			WHERE id=$1 AND registration_stage='stage_8_bank_loan' AND bank_loan_status='submitted'`
+		args = append(args, orDefault(in.Reason, "Please upload a clear copy of the bank loan receipt."))
+	}
+	res, err := s.db.ExecContext(r.Context(), q, args...)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		fail(w, 409, "No bank loan receipt is awaiting review for this applicant")
+		return
+	}
+	s.audit(r.Context(), uid, "loan_"+in.Action, "applicant", id, M{"reason": in.Reason})
+	if in.Action == "accept" {
+		s.notify(r.Context(), id, "loan_accepted", "Bank loan approved", "Download the mortgage deed, sign it and upload the receipt.")
+	} else {
+		s.notify(r.Context(), id, "loan_rejected", "Bank loan receipt rejected", orDefault(in.Reason, "Please upload a clear copy of the bank loan receipt."))
+	}
+	writeJSON(w, 200, M{"success": true})
+}
+
 // POST /api/admin/applicants/{id}/stage {stage}  (super_admin manual override)
 func (s *Server) adminSetStage(w http.ResponseWriter, r *http.Request) {
 	var in struct {

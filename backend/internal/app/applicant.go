@@ -39,7 +39,7 @@ func (s *Server) myApplicant(r *http.Request) (M, bool) {
 }
 
 // POST /api/me/upload  multipart {type, file}
-// agreement_signed (stage 5->6), bank_loan_receipt (8->9), mortgage_receipt (9->10)
+// agreement_signed (stage 5->6), bank_loan_receipt (stays at 8 until an admin approves it, then 9), mortgage_receipt (9->10)
 func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		fail(w, 400, "Invalid form")
@@ -72,7 +72,8 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 		set = `registration_stage='stage_6_agreement_receipt', agreement_receipt_path=$2, agreement_signed_at=now(), stage_4_status='pending', stage_4_reason=NULL`
 	case "bank_loan_receipt":
 		from = "stage_8_bank_loan"
-		set = `registration_stage='stage_9_mortgage', bank_loan_receipt_path=$2, bank_loan_form_uploaded_at=now()`
+		// stays at stage 8 until an admin approves the receipt (POST /api/admin/applicants/{id}/loan-review)
+		set = `bank_loan_receipt_path=$2, bank_loan_form_uploaded_at=now(), bank_loan_status='submitted', bank_loan_reason=NULL`
 	case "mortgage_receipt":
 		from = "stage_9_mortgage"
 		set = `registration_stage='stage_10_completed', mortgage_receipt_path=$2, mortgage_deed_signed_at=now(), registration_completed_at=now()`
@@ -83,6 +84,14 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 	if stage != from {
 		fail(w, 409, "This upload is not allowed at your current stage")
 		return
+	}
+	if utype == "bank_loan_receipt" {
+		var st string
+		_ = s.db.QueryRowContext(r.Context(), `SELECT bank_loan_status FROM applicants WHERE id=$1`, id).Scan(&st)
+		if st == "submitted" {
+			fail(w, 409, "Your loan receipt is already under review")
+			return
+		}
 	}
 	// The first file keeps the plain type (agreement_signed); extra files of a multi-file agreement are
 	// stored as agreement_signed_2, agreement_signed_3 ... so the admin panel can show every page.
@@ -149,7 +158,7 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 	case "agreement_signed":
 		s.notify(r.Context(), id, "agreement_submitted", "Agreement received", "Your signed agreement is under review.")
 	case "bank_loan_receipt":
-		s.notify(r.Context(), id, "loan_receipt_submitted", "Loan receipt received", "Download the mortgage deed, sign it and upload the receipt.")
+		s.notify(r.Context(), id, "loan_receipt_submitted", "Loan receipt received", "Your bank loan receipt is under review. You will be notified once it is approved.")
 	case "mortgage_receipt":
 		s.notify(r.Context(), id, "completed", "Registration complete", "Congratulations! Your registration is complete.")
 	}

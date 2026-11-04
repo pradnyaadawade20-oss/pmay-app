@@ -387,6 +387,15 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
                           if (Api.i.canReview && a['registration_stage'] == 'stage_6_agreement_receipt')
                             _reviewBox('Agreement review', 'Check the signed agreement, then approve, or reject with a reason so the applicant can upload again.',
                                 (act) => _reviewAt(Ep.agreementReview(widget.id), act, 'Agreement approved')),
+                          if (a['registration_stage'] == 'stage_8_bank_loan' && a['bank_loan_status'] == 'rejected')
+                            Padding(
+                                padding: const EdgeInsets.only(top: 22),
+                                child: _box(
+                                    color: kRed.withValues(alpha: 0.06),
+                                    child: Text('Bank loan receipt rejected: ${a['bank_loan_reason'] ?? ''}', style: const TextStyle(color: kRed, fontWeight: FontWeight.w600)))),
+                          if (Api.i.canReview && a['registration_stage'] == 'stage_8_bank_loan' && a['bank_loan_status'] == 'submitted')
+                            _reviewBox('Bank loan review', 'Check the bank loan receipt uploaded by the applicant, then approve to move them to the mortgage step, or reject with a reason so they can upload again.',
+                                (act) => _reviewAt(Ep.loanReview(widget.id), act, 'Bank loan approved')),
                           if (Api.i.canReview && a['registration_stage'] == 'stage_7_bank_document' && _bankDocsComplete && _loan!['loan_status'] != 'rejected')
                             _reviewBox('Bank documents review', 'Check the UPI statement, 3 ITRs and bank statement, then approve, or reject with a reason.',
                                 (act) => _reviewAt(Ep.bankReview(widget.id), act, 'Bank documents approved')),

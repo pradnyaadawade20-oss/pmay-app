@@ -5,7 +5,7 @@ import 'applicant_detail.dart';
 
 int _stageNo(Map a) => int.tryParse(RegExp(r'stage_(\d+)').firstMatch('${a['registration_stage']}')?.group(1) ?? '') ?? 0;
 
-bool _rejected(Map a) => _stageNo(a) == 8 && '${a['bank_loan_status'] ?? a['loan_application_status']}' == 'rejected';
+bool _rejected(Map a) => _stageNo(a) == 8 && '${a['bank_loan_status']}' == 'rejected';
 bool _pending(Map a) => _stageNo(a) == 8 && !_rejected(a);
 bool _approved(Map a) => _stageNo(a) >= 9;
 
@@ -129,7 +129,10 @@ class _BankingLoansPageState extends State<BankingLoansPage> {
       );
 
   Widget _statusPill(Map a) {
-    final (t, c) = _pending(a) ? ('Pending', kOrange) : (_approved(a) ? ('Approved', kGreen) : ('Rejected', kRed));
+    // Pending = at the bank loan step: either the applicant has not uploaded the receipt yet, or it waits for admin approval.
+    final (t, c) = _pending(a)
+        ? ('${a['bank_loan_status']}' == 'submitted' ? ('Needs review', kOrange) : ('Awaiting receipt', kMuted))
+        : (_approved(a) ? ('Approved', kGreen) : ('Rejected', kRed));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),

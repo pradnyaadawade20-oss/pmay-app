@@ -75,7 +75,7 @@ func (s *Server) panelApplicants(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.many(r.Context(), `SELECT a.id,a.unique_id,a.first_name,a.last_name,a.email,a.phone,a.email_verified,a.phone_verified,
 		a.registration_stage,a.stage_2_status,a.stage_2_reason,a.stage_4_status,a.stage_4_reason,a.handling_admin_id,a.created_at,a.updated_at,
-		a.pan_number,a.aadhar_number,l.loan_status,
+		a.pan_number,a.aadhar_number,a.bank_loan_status,a.bank_loan_reason,l.loan_status,
 		COALESCE(l.docs_count,0) AS bank_documents_count,
 		COALESCE(ur.display_name,'') AS handled_by_name
 		FROM applicants a LEFT JOIN loan_details l ON l.applicant_id=a.id LEFT JOIN LATERAL (SELECT display_name FROM user_roles WHERE user_id=a.handling_admin_id LIMIT 1) ur ON true
