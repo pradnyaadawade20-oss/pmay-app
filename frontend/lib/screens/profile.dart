@@ -72,8 +72,6 @@ class ProfileScreen extends StatelessWidget {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDetailsScreen()));
           }),
           const Divider(height: 1),
-          item(Icons.language, 'Language', 'English', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LanguageScreen()))),
-          const Divider(height: 1),
           item(Icons.notifications_none, 'Notifications', 'Updates about your application', () => openNotifications(context)),
           const Divider(height: 1),
           item(Icons.tour_outlined, 'App Guide', 'Take a quick tour of the app', () {

@@ -31,7 +31,7 @@ final _steps = <_Step>[
   _Step(TourKeys.projects, 'Projects',
       'Browse available housing projects, towers and flat details.', Icons.location_city),
   _Step(TourKeys.profile, 'Profile',
-      'Personal details, language, help & support. You can replay this tour from here anytime.', Icons.person),
+      'Personal details, help & support. You can replay this tour from here anytime.', Icons.person),
 ];
 
 class AppTour {

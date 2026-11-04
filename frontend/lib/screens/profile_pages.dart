@@ -137,49 +137,6 @@ class PersonalDetailsScreen extends StatelessWidget {
 }
 
 // =====================================================================
-// Language
-// =====================================================================
-class LanguageScreen extends StatelessWidget {
-  const LanguageScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget tile(String name, String native, {required bool selected}) => ListTile(
-          leading: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected ? kBlue : Colors.black38),
-          title: Text(name, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? null : Colors.black45)),
-          subtitle: Text(native),
-          trailing: selected
-              ? const Icon(Icons.check_circle, color: kBlue)
-              : Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(12)),
-                  child: const Text('Coming soon', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
-                ),
-        );
-    return Scaffold(
-      appBar: AppBar(title: const Text('Language')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('App language', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        const Text('Krutarth - PMAY is currently available in English. More languages will be added soon.',
-            style: TextStyle(color: Colors.black54, height: 1.4)),
-        const SizedBox(height: 14),
-        Card(
-          child: Column(children: [
-            tile('English', 'English', selected: true),
-            const Divider(height: 1),
-            tile('Hindi', 'हिन्दी', selected: false),
-            const Divider(height: 1),
-            tile('Marathi', 'मराठी', selected: false),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-// =====================================================================
 // Help & Support
 // =====================================================================
 class HelpSupportScreen extends StatelessWidget {
