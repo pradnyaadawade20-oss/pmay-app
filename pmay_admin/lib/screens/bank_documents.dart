@@ -10,7 +10,68 @@ bool _rejected(Map a) => _stageNo(a) == 7 && ('${a['loan_status']}' == 'rejected
 bool _pending(Map a) => a['registration_stage'] == 'stage_7_bank_document' && !_rejected(a);
 bool _approved(Map a) => _stageNo(a) >= 8;
 
-/// Bank submission = UPI statement + 3 ITRs + bank statement (5 documents).
+// ---- which documents a bank submission has ----
+// New submissions depend on the applicant's profile (salaried / business / nip) and are stored in loan['docs'] (key -> file).
+// Keep these keys in sync with backend/internal/app/bankdocs.go and frontend/lib/screens/bank_docs.dart.
+// Old submissions (before profiles existed) used 5 fixed documents stored in <key>_path columns.
+const bankProfileNames = {'salaried': 'Salaried Person', 'business': 'Business Person', 'nip': 'NIP (Non Income Proof)'};
+
+const _commonBankDocs = <(String, String, bool)>[
+  ('pan_card', 'PAN Card', true),
+  ('identity_proof', 'Identity Proof', true),
+  ('address_proof', 'Address Proof', true),
+  ('photographs', 'Photographs', true),
+];
+
+const _profileBankDocs = <String, List<(String, String, bool)>>{
+  'salaried': [
+    ('salary_slips', 'Salary Slips (6 months)', true),
+    ('salary_bank_statement', 'Bank Statement (12 months)', true),
+    ('form16_itr', 'Form 16 / ITR', true),
+    ('appointment_letter', 'Appointment Letter', true),
+  ],
+  'business': [
+    ('business_bank_statement', 'Business Bank Statement', true),
+    ('business_registration', 'GST / Shop License', true),
+    ('entity_proof', 'Business Entity Proof', true),
+    ('profit_loss', 'Profit & Loss Account', true),
+    ('balance_sheet', 'Balance Sheet', true),
+    ('business_itr', 'ITR (2–3 years)', true),
+  ],
+  'nip': [
+    ('nip_bank_statement', 'Bank Statement (12 months)', true),
+    ('salary_certificate', 'Salary Certificate', true),
+    ('employer_certificate', 'Employer Certificate', true),
+    ('rental_income_proof', 'Rental Income Proof', false),
+    ('shop_license', 'Shop License', true),
+    ('business_place_photos', 'Business Place Photos', true),
+  ],
+};
+
+const _legacyBankDocs = <(String, String, bool)>[
+  ('upi_statement', 'UPI Statement', true),
+  ('itr_year1', 'ITR Year 1', true),
+  ('itr_year2', 'ITR Year 2', true),
+  ('itr_year3', 'ITR Year 3', true),
+  ('bank_statement', 'Bank Statement (6 months)', true),
+];
+
+/// (key, label, required) of the documents this applicant's bank submission should contain.
+List<(String, String, bool)> bankDocList(Map? loan) {
+  final extra = _profileBankDocs['${loan?['profile_type'] ?? ''}'];
+  return extra == null ? _legacyBankDocs : [..._commonBankDocs, ...extra];
+}
+
+/// Whether the applicant uploaded this document (new `docs` map, or an old `<key>_path` column).
+bool bankDocHas(Map? loan, String key) {
+  final docs = loan?['docs'];
+  if (docs is Map && '${docs[key] ?? ''}'.isNotEmpty) return true;
+  return '${loan?['${key}_path'] ?? ''}'.isNotEmpty;
+}
+
+bool bankDocsComplete(Map? loan) => loan != null && bankDocList(loan).where((d) => d.$3).every((d) => bankDocHas(loan, d.$1));
+
+/// Bank submission: the documents uploaded so far.
 String _docs(Map a) {
   final n = a['bank_documents_count'] ?? a['bank_docs_count'] ?? 5;
   return '$n documents';
@@ -244,14 +305,6 @@ class BankDocumentDialog extends StatefulWidget {
 }
 
 class _BankDocumentDialogState extends State<BankDocumentDialog> {
-  static const _docs = [
-    ('upi_statement', 'UPI Statement'),
-    ('itr_year1', 'ITR Year 1'),
-    ('itr_year2', 'ITR Year 2'),
-    ('itr_year3', 'ITR Year 3'),
-    ('bank_statement', 'Bank Statement (6 months)'),
-  ];
-
   Map<String, dynamic>? _a;
   Map<String, dynamic> _loan = {};
   String? _err;
@@ -280,8 +333,8 @@ class _BankDocumentDialogState extends State<BankDocumentDialog> {
     super.dispose();
   }
 
-  bool _has(String kind) => '${_loan['${kind}_path'] ?? ''}'.isNotEmpty;
-  bool get _complete => _docs.every((d) => _has(d.$1));
+  bool _has(String kind) => bankDocHas(_loan, kind);
+  bool get _complete => bankDocsComplete(_loan);
   bool get _canAct =>
       Api.i.canReview && _a != null && _a!['registration_stage'] == 'stage_7_bank_document' && _complete && '${_loan['loan_status']}' != 'rejected';
 
@@ -407,6 +460,7 @@ class _BankDocumentDialogState extends State<BankDocumentDialog> {
                           _kv('Email', '${a['email'] ?? '-'}'),
                           _kv('Phone', '${a['phone'] ?? '-'}'),
                           _kv('Stage', '${a['registration_stage'] ?? '-'}'),
+                          if (bankProfileNames['${_loan['profile_type'] ?? ''}'] != null) _kv('Profile', bankProfileNames['${_loan['profile_type']}']!),
                         ];
                         if (c.maxWidth < 480) {
                           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [for (final i in items) Padding(padding: const EdgeInsets.only(bottom: 8), child: i)]);
@@ -420,7 +474,7 @@ class _BankDocumentDialogState extends State<BankDocumentDialog> {
                       const SizedBox(height: 20),
                       const Text('Uploaded Documents', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: kInk)),
                       const SizedBox(height: 10),
-                      for (final d in _docs) _docRow(d.$1, d.$2),
+                      for (final d in bankDocList(_loan)) _docRow(d.$1, d.$3 ? d.$2 : '${d.$2} (optional)'),
                       const SizedBox(height: 8),
                       if (_canAct) ...[
                         const Text('Notes (Required for rejection)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kInk)),

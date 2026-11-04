@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../common.dart';
 import '../web_open.dart';
+import 'bank_documents.dart' show bankDocHas, bankDocList, bankDocsComplete;
 
 class ApplicantDetail extends StatefulWidget {
   final String id;
@@ -147,24 +148,17 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
       m[t] = 'Signed agreement (${t.split('_').last})';
     }
     if (loan != null) {
-      const l = {
-        'upi_statement': 'UPI statement',
-        'itr_year1': 'ITR - year 1',
-        'itr_year2': 'ITR - year 2',
-        'itr_year3': 'ITR - year 3',
-        'bank_statement': 'Bank statement',
-      };
-      l.forEach((k, v) {
-        if (loan['${k}_path'] != null) m[k] = v;
-      });
+      // bank documents: profile-based list (salaried / business / nip) or the old 5 fixed documents
+      for (final d in bankDocList(loan)) {
+        if (bankDocHas(loan, d.$1)) m[d.$1] = d.$2;
+      }
     }
     if (a['bank_loan_receipt_path'] != null) m['bank_loan_receipt'] = 'Bank loan receipt';
     if (a['mortgage_receipt_path'] != null) m['mortgage_receipt'] = 'Mortgage receipt';
     return m;
   }
 
-  bool get _bankDocsComplete =>
-      _loan != null && ['upi_statement', 'itr_year1', 'itr_year2', 'itr_year3', 'bank_statement'].every((k) => _loan!['${k}_path'] != null);
+  bool get _bankDocsComplete => bankDocsComplete(_loan);
 
   /// accept/reject for the agreement receipt (stage 6) and bank documents (stage 7).
   Future<void> _reviewAt(String path, String action, String okMsg) async {
@@ -397,7 +391,7 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
                             _reviewBox('Bank loan review', 'Check the bank loan receipt uploaded by the applicant, then approve to move them to the mortgage step, or reject with a reason so they can upload again.',
                                 (act) => _reviewAt(Ep.loanReview(widget.id), act, 'Bank loan approved')),
                           if (Api.i.canReview && a['registration_stage'] == 'stage_7_bank_document' && _bankDocsComplete && _loan!['loan_status'] != 'rejected')
-                            _reviewBox('Bank documents review', 'Check the UPI statement, 3 ITRs and bank statement, then approve, or reject with a reason.',
+                            _reviewBox('Bank documents review', 'Check the uploaded bank documents, then approve, or reject with a reason.',
                                 (act) => _reviewAt(Ep.bankReview(widget.id), act, 'Bank documents approved')),
                           const SizedBox(height: 22),
                           const SectionTitle('Payments', Icons.account_balance_wallet_outlined),
