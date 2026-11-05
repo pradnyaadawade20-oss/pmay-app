@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'mortgage_deed_form.dart';
@@ -29,7 +30,7 @@ class MortgagePage extends StatefulWidget {
   State<MortgagePage> createState() => _MortgagePageState();
 }
 
-class _MortgagePageState extends State<MortgagePage> {
+class _MortgagePageState extends State<MortgagePage> with AutoSyncMixin {
   List<Map<String, dynamic>> _all = [];
   bool _loading = true;
   String? _err;
@@ -42,16 +43,21 @@ class _MortgagePageState extends State<MortgagePage> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.list('', ''));
       _all = List<Map<String, dynamic>>.from(r['applicants'] ?? []).where((a) => _awaiting(a) || _completed(a)).toList();
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 
 class PaymentsPage extends StatefulWidget {
@@ -8,7 +9,7 @@ class PaymentsPage extends StatefulWidget {
   State<PaymentsPage> createState() => _PaymentsPageState();
 }
 
-class _PaymentsPageState extends State<PaymentsPage> {
+class _PaymentsPageState extends State<PaymentsPage> with AutoSyncMixin {
   List<Map<String, dynamic>> _list = [];
   bool _loading = true;
   String? _err;
@@ -19,16 +20,21 @@ class _PaymentsPageState extends State<PaymentsPage> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.payments('pending'));
       _list = List<Map<String, dynamic>>.from(r['payments'] ?? []);
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }

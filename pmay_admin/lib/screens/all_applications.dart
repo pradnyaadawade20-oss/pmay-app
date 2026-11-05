@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'allot_ui.dart';
@@ -72,7 +73,7 @@ class AllApplicationsPage extends StatefulWidget {
   State<AllApplicationsPage> createState() => _AllApplicationsPageState();
 }
 
-class _AllApplicationsPageState extends State<AllApplicationsPage> {
+class _AllApplicationsPageState extends State<AllApplicationsPage> with AutoSyncMixin {
   final _q = TextEditingController();
   List<Map<String, dynamic>> _all = [];
   bool _loading = true;
@@ -94,16 +95,21 @@ class _AllApplicationsPageState extends State<AllApplicationsPage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.list('', ''));
       _all = List<Map<String, dynamic>>.from(r['applicants'] ?? []);
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -656,7 +662,7 @@ List<(String, String)> _mortgageDeedBlocks(Map a, String name, String age) {
     ('p', 'This deed of mortgage made and executed on $date at $place between'),
     ('p',
         '${_mdV(person)}, Age ${_mdV(age == '____' ? '' : age)}, Occupation ${_mdV(a['occupation'])}, Residing At ${_mdV(a['full_address'])}, '
-            'PAN ${_mdV(a['pan_number'])}, UID ${_mdV(a['aadhar_number'])}, Mobile No. ${_mdV(a['phone'])}, Email id ${_mdV(a['email'])}, '
+            'PAN ${_mdV(a['pan_number'])}, UID ${_mdV(formatAadhaar(a['aadhar_number'], ''))}, Mobile No. ${_mdV(a['phone'])}, Email id ${_mdV(a['email'])}, '
             'HEREINAFTER Called "the Mortgager" (which expression shall unless excluded by or repugnant to the subject to the context include '
             'his/her heirs, executors administrators representative assigns and transferee in interest of the) one part AND'),
     ('p',
@@ -736,7 +742,7 @@ List<(String, String)> docBlocks(String doc, Map a) {
             '**$_promoterName**, $_promoterDesc(Hereinafter referred to as "**THE PROMOTER**" which expression shall mean and include its successors, partners, executors and assignees of ONE PART)'),
         ('h', 'AND'),
         ('p',
-            '**$name**, Age $age Years, Occupation: ${_v(a, 'occupation', 'N/A')}, (PAN NO ${_v(a, 'pan_number')}), (AADHAR NO. ${_v(a, 'aadhar_number')}), Residing At: $addr, Mobile No. ${_v(a, 'phone')}, Email: ${_v(a, 'email')}(Hereinafter called the "**PURCHASER/ALLOTTEE**" which expression shall, unless repugnant to the context mean and include his heirs, executors, legal representatives, successors and assigns) OF OTHER PART.'),
+            '**$name**, Age $age Years, Occupation: ${_v(a, 'occupation', 'N/A')}, (PAN NO ${_v(a, 'pan_number')}), (AADHAR NO. ${formatAadhaar(a['aadhar_number'], '________')}), Residing At: $addr, Mobile No. ${_v(a, 'phone')}, Email: ${_v(a, 'email')}(Hereinafter called the "**PURCHASER/ALLOTTEE**" which expression shall, unless repugnant to the context mean and include his heirs, executors, legal representatives, successors and assigns) OF OTHER PART.'),
         ('h', 'WHEREAS:'),
         ('p',
             'A. The Promoter is absolute owner and in possession of land admeasuring $_land (hereinafter referred to as "The said land") and is developing a project known as "**$_project**" thereon registered under MahaRERA vide Registration No. **$_rera**.'),
@@ -855,7 +861,7 @@ List<(String, String)> _allotmentBlocks(Map a) {
     ('p',
         'With reference to your application for booking of flat in our project "$project", we are pleased to inform you that Flat No. **$flat** has been provisionally allotted to you, subject to the terms and conditions mentioned herein and in the Agreement of Sale.'),
     ('h', '1. ALLOTTEE DETAILS'),
-    ('kv', "Name of Allottee|$name\nFather's/Spouse's Name|$father\nAddress|$addr\nPhone|${_v(a, 'phone')}\nEmail|${_v(a, 'email')}\nPAN|${_v(a, 'pan_number')}\nAadhar|${_v(a, 'aadhar_number')}"),
+    ('kv', "Name of Allottee|$name\nFather's/Spouse's Name|$father\nAddress|$addr\nPhone|${_v(a, 'phone')}\nEmail|${_v(a, 'email')}\nPAN|${_v(a, 'pan_number')}\nAadhar|${formatAadhaar(a['aadhar_number'], '________')}"),
     ('h', '2. FLAT/UNIT DETAILS'),
     ('kv', 'Project Name|$project\nFlat No.|$flat\nFloor|${_v(a, 'floor')}\nWing|${_v(a, 'wing')}\nTower/Building|${_v(a, 'tower')}\nCarpet Area|$carpet'),
     ('h', '3. PARKING DETAILS'),

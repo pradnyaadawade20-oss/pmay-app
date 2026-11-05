@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import 'agreement_receipts.dart';
 import 'bank_documents.dart';
@@ -46,7 +47,7 @@ class ApplicantsPage extends StatefulWidget {
   State<ApplicantsPage> createState() => _ApplicantsPageState();
 }
 
-class _ApplicantsPageState extends State<ApplicantsPage> {
+class _ApplicantsPageState extends State<ApplicantsPage> with AutoSyncMixin {
   final _q = TextEditingController();
   late String _stage = widget.initialStage;
   List<Map<String, dynamic>> _list = [];
@@ -67,16 +68,21 @@ class _ApplicantsPageState extends State<ApplicantsPage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.list(_q.text.trim(), _stage));
       _list = List<Map<String, dynamic>>.from(r['applicants'] ?? []);
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }

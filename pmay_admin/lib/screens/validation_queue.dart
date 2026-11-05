@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'verify_contact_dialog.dart';
@@ -58,7 +59,7 @@ class ValidationQueuePage extends StatefulWidget {
   State<ValidationQueuePage> createState() => _ValidationQueuePageState();
 }
 
-class _ValidationQueuePageState extends State<ValidationQueuePage> {
+class _ValidationQueuePageState extends State<ValidationQueuePage> with AutoSyncMixin {
   final _q = TextEditingController();
   List<Map<String, dynamic>> _all = [];
   bool _loading = true;
@@ -79,16 +80,21 @@ class _ValidationQueuePageState extends State<ValidationQueuePage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.list('', ''));
       _all = List<Map<String, dynamic>>.from(r['applicants'] ?? []);
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -258,7 +264,7 @@ class _ValidationQueuePageState extends State<ValidationQueuePage> {
                       Text(_s(a['email']), style: const TextStyle(fontSize: 12.5, color: kInk)),
                       Text(_s(a['phone']), style: const TextStyle(fontSize: 12, color: kMuted)),
                     ])),
-                    DataCell(Text(_s(a['aadhar_number']), style: const TextStyle(fontSize: 12.5))),
+                    DataCell(Text(formatAadhaar(a['aadhar_number']), style: const TextStyle(fontSize: 12.5))),
                     DataCell(Text(_s(a['pan_number']), style: const TextStyle(fontSize: 12.5))),
                     DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
                       _vBadge('Email', _emailOk(a), onTap: () => _verifyContact(a, true)),
@@ -583,7 +589,7 @@ class _ReviewApplicantDialogState extends State<ReviewApplicantDialog> {
                               _kv('Name', fullName(a)),
                               _kv('Email', a['email']),
                               _kv('Phone', a['phone']),
-                              _kv('Aadhar', a['aadhar_number']),
+                              _kv('Aadhar', formatAadhaar(a['aadhar_number'])),
                               _kv('PAN', a['pan_number']),
                               if (decided) _kv(rejected ? 'Rejected At' : 'Verified At', verifiedAt == null ? null : _fmtDateTime(verifiedAt)),
                               if (rejected) _kv('Rejection Reason', a['stage_2_reason']),

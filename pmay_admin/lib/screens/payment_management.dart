@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import '../web_open.dart';
 import 'cheque_payment_dialog.dart';
@@ -72,7 +73,7 @@ class PaymentManagementPage extends StatefulWidget {
   State<PaymentManagementPage> createState() => _PaymentManagementPageState();
 }
 
-class _PaymentManagementPageState extends State<PaymentManagementPage> {
+class _PaymentManagementPageState extends State<PaymentManagementPage> with AutoSyncMixin {
   List<Map<String, dynamic>> _all = [];
   List<Map<String, dynamic>> _awaiting = []; // applicants at the payment stage (the user app only shows "Awaiting Payment")
   bool _loading = true;
@@ -98,11 +99,16 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       Map<String, dynamic> r;
       try {
@@ -118,7 +124,7 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> {
         _awaiting = [];
       }
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }

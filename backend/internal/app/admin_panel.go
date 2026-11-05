@@ -47,7 +47,8 @@ func (s *Server) panelStats(w http.ResponseWriter, r *http.Request) {
 	_ = s.db.QueryRowContext(r.Context(), `SELECT
 		(SELECT count(*) FROM applicants),
 		(SELECT count(*) FROM applicants WHERE registration_stage='stage_1_registered' AND stage_2_status='pending'),
-		(SELECT count(*) FROM payments WHERE payment_status='pending' AND payment_method='offline'),
+		(SELECT count(*) FROM applicants a WHERE a.registration_stage='stage_3_payment'
+		   OR EXISTS (SELECT 1 FROM payments p WHERE p.applicant_id=a.id AND p.payment_status='pending' AND p.payment_method='offline')),
 		(SELECT count(*) FROM applicants WHERE registration_stage='stage_10_completed'),
 		(SELECT count(*) FROM units WHERE status='available')`).Scan(&total, &pending, &payments, &completed, &units)
 	rows, _ := s.many(r.Context(), `SELECT registration_stage AS stage, count(*)::int AS n FROM applicants GROUP BY 1`)

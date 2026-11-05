@@ -375,7 +375,7 @@ class _MortgageDeedDialogState extends State<MortgageDeedDialog> {
         _kv('Mortgagor', fullName(_a)),
         _kv('Age / Occupation', '${_a['age'] ?? '-'} / ${_a['occupation'] ?? '-'}'),
         _kv('Address', _a['full_address']),
-        _kv('PAN / Aadhaar', '${_a['pan_number'] ?? '-'} / ${_a['aadhar_number'] ?? '-'}'),
+        _kv('PAN / Aadhaar', '${_a['pan_number'] ?? '-'} / ${formatAadhaar(_a['aadhar_number'])}'),
         _kv('Mobile / Email', '${_a['phone'] ?? '-'} / ${_a['email'] ?? '-'}'),
         _kv('Property', unitTxt),
       ]),

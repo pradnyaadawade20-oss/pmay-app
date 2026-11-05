@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'aadhaar.dart';
 
 /// SIMPLE MORTGAGE DEED, built from the approved draft (clauses 1-12 + schedule).
 /// Used only when the admin has filled in the deed details (data['deed'] is not empty);
@@ -56,7 +57,7 @@ Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dy
   final intro = <String>[
     'This deed of mortgage made and executed on $date at $place between',
     '${_v(name)}, Age ${_v(a['age'])}, Occupation ${_v(a['occupation'])}, Residing At ${_v(a['full_address'])}, '
-        'PAN ${_v(a['pan_number'])}, UID ${_v(a['aadhar_number'])}, Mobile No. ${_v(a['phone'])}, Email id ${_v(a['email'])}, '
+        'PAN ${_v(a['pan_number'])}, UID ${_v(formatAadhaar(a['aadhar_number']))}, Mobile No. ${_v(a['phone'])}, Email id ${_v(a['email'])}, '
         'HEREINAFTER Called "the Mortgager" (which expression shall unless excluded by or repugnant to the subject to the context include '
         'his/her heirs, executors administrators representative assigns and transferee in interest of the) one part AND',
     '${_v(bankName)}, represented by its Authorized Signatory ${_v(_t(d, 'signatory_designation'))}, Bank Address: ${_v(_t(d, 'bank_address'))}, '

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import 'add_unit.dart';
 import 'all_applications.dart';
@@ -31,9 +32,14 @@ class _Action {
   _Action(this.icon, this.color, this.title, this.sub, this.onTap, {this.count, this.countLabel, this.linkLabel});
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with AutoSyncMixin {
   late Future<Map<String, dynamic>> _f = Api.i.get(Ep.stats);
   late Future<Map<String, dynamic>> _sys = Api.i.get(Ep.systemStatus);
+  Map<String, dynamic>? _last; // last numbers shown: stay on screen while newer ones load, so nothing flashes
+
+  /// Something changed on the server: fetch the new numbers (system health is only re-checked by the Refresh button).
+  @override
+  void onSync() => setState(() => _f = Api.i.get(Ep.stats));
 
   void _refresh() => setState(() {
         _f = Api.i.get(Ep.stats);
@@ -131,7 +137,7 @@ class _DashboardPageState extends State<DashboardPage> {
         if (Api.i.canPayments)
           _Action(Icons.account_balance_wallet_rounded, kBlue, 'Payment Management', 'Verify offline payments',
               () => _o('Payment Management', const PaymentManagementPage()),
-              count: '${s['pending_payments'] ?? 0}', countLabel: 'Pending Verification'),
+              count: '${s['pending_payments'] ?? 0}', countLabel: 'Pending Payments'),
         _Action(Icons.home_work_rounded, kGreen, 'Unit Allotment', 'Manage units and allot flats to applicants',
             () => _o('Unit Allotment', const UnitAllotmentPage()),
             count: '${s['available_units'] ?? 0}', countLabel: 'Available Units'),
@@ -264,8 +270,10 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
         future: _f,
         builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (snap.hasError) {
+          if (snap.hasData) _last = snap.data;
+          final data = snap.data ?? _last;
+          if (data == null && snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+          if (data == null && snap.hasError) {
             return Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.cloud_off_rounded, size: 44, color: kMuted),
@@ -275,7 +283,7 @@ class _DashboardPageState extends State<DashboardPage> {
               OutlinedButton(onPressed: _refresh, child: const Text('Retry')),
             ]));
           }
-          final s = (snap.data!['stats'] ?? {}) as Map;
+          final s = (data!['stats'] ?? {}) as Map;
           return LayoutBuilder(builder: (context, c) {
             final cols = ((c.maxWidth + 16) / (230 + 16)).floor().clamp(1, 4);
             return ListView(children: [

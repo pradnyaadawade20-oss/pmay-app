@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'api.dart';
 import 'push.dart';
 
@@ -78,6 +80,42 @@ class AppState extends ChangeNotifier {
     } catch (_) {}
   }
 
+  // ---- live sync: every 2 seconds ask the server whether anything about this applicant changed ----
+  // (an admin approved a step, a payment was recorded, a notification arrived ...). Only then is the data
+  // reloaded, so screens update by themselves without a manual refresh and without needless traffic.
+  Timer? _syncTimer;
+  String? _syncRev;
+  bool _syncBusy = false;
+
+  void _startSync() {
+    _syncTimer?.cancel();
+    _syncRev = null;
+    _syncTimer = Timer.periodic(const Duration(seconds: 2), (_) => _syncTick());
+  }
+
+  void _stopSync() {
+    _syncTimer?.cancel();
+    _syncTimer = null;
+    _syncRev = null;
+  }
+
+  Future<void> _syncTick() async {
+    if (_syncBusy || !loggedIn) return;
+    final life = WidgetsBinding.instance.lifecycleState;
+    if (life != null && life != AppLifecycleState.resumed) return; // app in the background
+    _syncBusy = true; // never overlap requests when the connection is slow
+    try {
+      final r = await api.get('/me/sync');
+      final rev = '${r['rev']}';
+      if (_syncRev != null && rev != _syncRev) await refresh();
+      _syncRev = rev;
+    } catch (_) {
+      // offline or server waking up: try again on the next tick
+    } finally {
+      _syncBusy = false;
+    }
+  }
+
   // ---- push (FCM) ----
   String? _pushToken;
 
@@ -135,6 +173,7 @@ class AppState extends ChangeNotifier {
         await refresh();
       } catch (_) {}
       registerPush();
+      _startSync();
     }
     ready = true;
     notifyListeners();
@@ -146,6 +185,7 @@ class AppState extends ChangeNotifier {
     roles = List<String>.from(r['roles'] ?? []);
     await refresh();
     registerPush();
+    _startSync();
   }
 
   String? get email => me?['email'] as String?;
@@ -157,6 +197,7 @@ class AppState extends ChangeNotifier {
     roles = [];
     await refresh();
     registerPush();
+    _startSync();
   }
 
   Future<void> registerWith(Map<String, String> fields, Map<String, String> files) async {
@@ -164,6 +205,7 @@ class AppState extends ChangeNotifier {
     await api.saveToken(r['token'] as String);
     await refresh();
     registerPush();
+    _startSync();
   }
 
   Future<void> refresh() async {
@@ -174,6 +216,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _stopSync();
     await _unregisterPush(); // stop pushes to this device for the old account
     await api.saveToken(null);
     guest = false;

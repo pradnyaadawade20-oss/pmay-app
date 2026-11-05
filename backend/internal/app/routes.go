@@ -21,6 +21,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/me/upload", s.authed(s.meUpload))
 	mux.HandleFunc("POST /api/me/bank-documents", s.authed(s.meBankDocs))
 	mux.HandleFunc("GET /api/me/documents/{kind}", s.authed(s.meDocument))
+	mux.HandleFunc("GET /api/me/sync", s.authed(s.meSync))
+	mux.HandleFunc("GET /api/admin/sync", s.authed(s.adminSync, anyAdmin...))
 	mux.HandleFunc("GET /api/me/notifications", s.authed(s.myNotifications))
 	mux.HandleFunc("POST /api/me/notifications/read", s.authed(s.readNotifications))
 	mux.HandleFunc("POST /api/me/device-token", s.authed(s.saveDeviceToken))

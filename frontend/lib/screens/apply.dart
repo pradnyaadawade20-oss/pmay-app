@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../aadhaar.dart';
 import '../api.dart' show ApiException;
 import '../state.dart';
 import '../theme.dart';
@@ -79,7 +80,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
           f.forEach((k, v) {
             final c = _c[k];
             if (c != null && c.text.trim().isEmpty && '$v'.trim().isNotEmpty) {
-              c.text = '$v';
+              c.text = k == 'aadharNumber' ? formatAadhaar(v) : '$v';
               filled++;
             }
           });
@@ -142,6 +143,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
           int? maxLen,
           Widget? suffix,
           bool readOnly = false,
+          bool aadhaar = false, // shown as "XXXX XXXX XXXX" while typing
           String? helper}) =>
       Padding(
         key: _k(key),
@@ -158,9 +160,11 @@ class _ApplyScreenState extends State<ApplyScreen> {
               // number / phone / email boxes: no autocorrect or suggestions (they break backspace on some keyboards)
               autocorrect: !(type == TextInputType.phone || type == TextInputType.number || type == TextInputType.emailAddress),
               enableSuggestions: !(type == TextInputType.phone || type == TextInputType.number || type == TextInputType.emailAddress),
-              inputFormatters: (type == TextInputType.phone || type == TextInputType.number) && !readOnly
-                  ? [FilteringTextInputFormatter.digitsOnly]
-                  : null,
+              inputFormatters: aadhaar
+                  ? [AadhaarInputFormatter()]
+                  : (type == TextInputType.phone || type == TextInputType.number) && !readOnly
+                      ? [FilteringTextInputFormatter.digitsOnly]
+                      : null,
               // locked field (e.g. email of the logged-in account) looks greyed out with a lock
               decoration: _dec(hint, suffix: suffix ?? (readOnly ? const Icon(Icons.lock_outline, size: 18) : null))
                   .copyWith(counterText: '', fillColor: readOnly ? const Color(0xFFE9ECF1) : null),
@@ -313,7 +317,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t('email'))) ('email', 'Email'),
       if (!RegExp(r'^\d{10}$').hasMatch(t('phone'))) ('phone', 'Mobile Number (10 digits)'),
       if (t('fullAddress').isEmpty) ('fullAddress', 'Full Address'),
-      if (!RegExp(r'^\d{12}$').hasMatch(t('aadharNumber'))) ('aadharNumber', 'Aadhar Number (12 digits)'),
+      if (!RegExp(r'^\d{12}$').hasMatch(t('aadharNumber').replaceAll(' ', ''))) ('aadharNumber', 'Aadhar Number (12 digits)'),
       if (!RegExp(r'^[A-Za-z]{5}[0-9]{4}[A-Za-z]$').hasMatch(t('panNumber'))) ('panNumber', 'PAN Number'),
       if (!loggedIn && t('password').isEmpty) ('password', 'Password'),
     ];
@@ -335,6 +339,9 @@ class _ApplyScreenState extends State<ApplyScreen> {
       final fields = <String, String>{
         for (final e in _c.entries) e.key: e.value.text.trim(),
         'panNumber': _c['panNumber']!.text.trim().toUpperCase(),
+        // the server stores plain digits; the form shows them in groups of 4
+        'aadharNumber': _c['aadharNumber']!.text.replaceAll(RegExp(r'\D'), ''),
+        'coApplicantAadhar': _c['coApplicantAadhar']!.text.replaceAll(RegExp(r'\D'), ''),
         'bloodGroup': _blood ?? '',
         'handlingAdminId': _adminId ?? '',
         'hasCoApplicant': _hasCo.toString(),
@@ -418,7 +425,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
                 _field('coApplicantName', 'Co-applicant Name'),
                 _field('coApplicantRelation', 'Relation'),
                 _dateField('coApplicantDob', 'Co-applicant Date of Birth'),
-                _field('coApplicantAadhar', 'Co-applicant Aadhaar', type: TextInputType.number, maxLen: 12),
+                _field('coApplicantAadhar', 'Co-applicant Aadhaar', hint: 'XXXX XXXX XXXX', type: TextInputType.number, aadhaar: true, maxLen: 14),
                 _field('coApplicantPan', 'Co-applicant PAN', maxLen: 10),
                 _field('coApplicantPhone', 'Co-applicant Phone', type: TextInputType.phone, maxLen: 10),
               ],
@@ -438,10 +445,11 @@ class _ApplyScreenState extends State<ApplyScreen> {
 
               _section('Identity Documents'),
               _field('aadharNumber', 'Aadhar Number',
-                  hint: '12 digit number',
+                  hint: 'XXXX XXXX XXXX',
                   type: TextInputType.number,
-                  maxLen: 12,
-                  validator: (v) => RegExp(r'^\d{12}$').hasMatch(v ?? '') ? null : 'Enter 12 digit Aadhaar'),
+                  aadhaar: true,
+                  maxLen: 14,
+                  validator: (v) => RegExp(r'^\d{12}$').hasMatch((v ?? '').replaceAll(' ', '')) ? null : 'Enter 12 digit Aadhaar'),
               _field('panNumber', 'PAN Number',
                   hint: 'ABCDE1234F',
                   maxLen: 10,

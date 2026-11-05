@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import 'allot_shell.dart';
 import 'applicants.dart';
@@ -14,6 +15,18 @@ class AdminShell extends StatefulWidget {
 }
 
 class _AdminShellState extends State<AdminShell> {
+  @override
+  void initState() {
+    super.initState();
+    AutoSync.start(); // screens below refresh themselves every 2 seconds when the data changed
+  }
+
+  @override
+  void dispose() {
+    AutoSync.stop();
+    super.dispose();
+  }
+
   int _i = 0;
   Widget? _sub; // dashboard ke Quick Actions se khula page
   String _subTitle = '';

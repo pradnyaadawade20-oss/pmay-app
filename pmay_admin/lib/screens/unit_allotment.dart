@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import 'allot_ui.dart';
 
@@ -30,7 +31,7 @@ class UnitAllotmentPage extends StatefulWidget {
   State<UnitAllotmentPage> createState() => _UnitAllotmentPageState();
 }
 
-class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
+class _UnitAllotmentPageState extends State<UnitAllotmentPage> with AutoSyncMixin {
   List<Map<String, dynamic>> _units = [];
   List<Map<String, dynamic>> _eligible = [];
   bool _loading = true;
@@ -46,18 +47,23 @@ class _UnitAllotmentPageState extends State<UnitAllotmentPage> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.units);
       final e = await Api.i.get(Ep.eligibleApplicants);
       _units = List<Map<String, dynamic>>.from(r['units'] ?? []);
       _eligible = List<Map<String, dynamic>>.from(e['applicants'] ?? []);
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }

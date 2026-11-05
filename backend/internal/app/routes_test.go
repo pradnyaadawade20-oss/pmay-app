@@ -15,7 +15,7 @@ func TestRoutesRegistered(t *testing.T) {
 		{"POST", "/api/auth/register"}, {"POST", "/api/auth/signup"}, {"POST", "/api/auth/login"},
 		{"POST", "/api/otp/send"}, {"POST", "/api/otp/verify"},
 		{"POST", "/api/ocr/extract"},
-		{"GET", "/api/me"}, {"GET", "/api/me/documents/allotment"}, {"POST", "/api/payments/offline"},
+		{"GET", "/api/me"}, {"GET", "/api/me/sync"}, {"GET", "/api/admin/sync"},{"GET", "/api/me/documents/allotment"}, {"POST", "/api/payments/offline"},
 		{"GET", "/api/admin/stats"}, {"GET", "/api/admin/system-status"},
 		{"GET", "/api/admin/applicants"}, {"GET", "/api/admin/applicants/x"},
 		{"GET", "/api/admin/applicants/x/documents/passport_photo"},

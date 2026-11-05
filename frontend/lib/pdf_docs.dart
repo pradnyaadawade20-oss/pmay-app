@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'aadhaar.dart';
 import 'mortgage_deed_pdf.dart';
 
 /// Generates the 4 printable documents from /api/me/documents/{kind} data
@@ -57,7 +58,7 @@ Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynami
     ['Age / Occupation', '${_s(a['age'])} / ${_s(a['occupation'])}'],
     ['Address', _s(a['full_address'])],
     ['PAN', _s(a['pan_number'])],
-    ['Aadhaar', _s(a['aadhar_number'])],
+    ['Aadhaar', _s(formatAadhaar(a['aadhar_number']))],
     if (a['has_co_applicant'] == true) ['Co-applicant', '${_s(a['co_applicant_name'])} (${_s(a['co_applicant_relation'])})'],
     ['Project', _s(p['project_name'])],
     ['RERA No.', _s(p['rera_registration_no'])],

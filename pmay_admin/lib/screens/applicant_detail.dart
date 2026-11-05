@@ -297,7 +297,7 @@ class _ApplicantDetailState extends State<ApplicantDetail> {
                               _kv("Spouse's name", a['spouse_name']),
                               _kv('Blood group', a['blood_group']),
                               _kv('Occupation', a['occupation']),
-                              _kv('Aadhaar', a['aadhar_number']),
+                              _kv('Aadhaar', formatAadhaar(a['aadhar_number'])),
                               _kv('PAN', a['pan_number']),
                               _kv('Address', a['full_address'], w: 520),
                             ]),

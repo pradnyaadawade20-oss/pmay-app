@@ -33,6 +33,14 @@ const docKinds = {
   'pan_front': 'PAN Card',
 };
 
+/// "234567890124" -> "2345 6789 0124" (standard Aadhaar format). Not 12 digits: shown as stored; blank: [empty].
+String formatAadhaar(Object? v, [String empty = '-']) {
+  final raw = (v ?? '').toString().trim();
+  if (raw.isEmpty) return empty;
+  final d = raw.replaceAll(RegExp(r'\D'), '');
+  return d.length == 12 ? '${d.substring(0, 4)} ${d.substring(4, 8)} ${d.substring(8)}' : raw;
+}
+
 String fullName(Map a) {
   final n = '${a['first_name'] ?? ''} ${a['last_name'] ?? ''}'.trim();
   return n.isEmpty ? '-' : n;

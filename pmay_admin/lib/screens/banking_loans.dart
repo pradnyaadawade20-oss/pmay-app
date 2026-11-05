@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../auto_sync.dart';
 import '../common.dart';
 import 'applicant_detail.dart';
 
@@ -29,7 +30,7 @@ class BankingLoansPage extends StatefulWidget {
   State<BankingLoansPage> createState() => _BankingLoansPageState();
 }
 
-class _BankingLoansPageState extends State<BankingLoansPage> {
+class _BankingLoansPageState extends State<BankingLoansPage> with AutoSyncMixin {
   List<Map<String, dynamic>> _all = [];
   bool _loading = true;
   String? _err;
@@ -42,16 +43,21 @@ class _BankingLoansPageState extends State<BankingLoansPage> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _err = null;
-    });
+  @override
+  void onSync() => _load(silent: true);
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
+    }
     try {
       final r = await Api.i.get(Ep.list('', ''));
       _all = List<Map<String, dynamic>>.from(r['applicants'] ?? []).where((a) => _pending(a) || _approved(a) || _rejected(a)).toList();
     } catch (e) {
-      _err = e.toString();
+      if (!silent) _err = e.toString();
     }
     if (mounted) setState(() => _loading = false);
   }
