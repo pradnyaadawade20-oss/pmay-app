@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'aadhaar.dart';
 import 'mortgage_deed_pdf.dart';
+import 'sale_docs_pdf.dart';
 
 /// Generates the 4 printable documents from /api/me/documents/{kind} data
 /// (kind = allotment | agreement | bank-loan | mortgage).
@@ -47,6 +48,9 @@ Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynami
   if (kind == 'mortgage') {
     return buildMortgageDeedPdf(data, signature: signature);
   }
+  // The documents the applicant signs use the same layout as the ones issued by the admin panel.
+  if (kind == 'agreement') return buildAgreementOfSalePdf(data, signature: signature);
+  if (kind == 'allotment') return buildAllotmentLetterPdf(data, signature: signature);
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
   final p = Map<String, dynamic>.from(data['project'] ?? {});

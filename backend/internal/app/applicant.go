@@ -187,7 +187,9 @@ func (s *Server) meDocument(w http.ResponseWriter, r *http.Request) {
 	unit, _ := s.one(r.Context(), `SELECT * FROM units WHERE id=$1`, app["stage_5_allotment_id"])
 	project, _ := s.one(r.Context(), `SELECT * FROM project_settings LIMIT 1`)
 	loan, _ := s.one(r.Context(), `SELECT * FROM loan_details WHERE applicant_id=$1`, app["id"])
-	resp := M{"success": true, "kind": kind, "applicant": app, "unit": unit, "project": project, "loan": loan}
+	// the booking payment (amount, date, receipt no.) is printed in the allotment letter
+	payments, _ := s.many(r.Context(), `SELECT amount,payment_status,payment_date,receipt_number,created_at FROM payments WHERE applicant_id=$1 ORDER BY created_at`, app["id"])
+	resp := M{"success": true, "kind": kind, "applicant": app, "unit": unit, "project": project, "loan": loan, "payments": payments}
 	if kind == "mortgage" { // extra data for the Simple Mortgage Deed (empty until the admin fills it in)
 		resp["deed"], resp["schedule"] = s.loadDeed(r.Context(), app["id"])
 	}

@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 import '../api.dart' show Api;
 import '../pdf_docs.dart';
+import '../state.dart';
 
 /// Screen 1: user draws the signature. Pops the signature PNG bytes.
 class SignaturePadPage extends StatefulWidget {
@@ -61,8 +63,9 @@ Future<bool> eSignAndUpload(BuildContext context, Api api, {required String docK
   final res = await Navigator.push<Uint8List>(context, MaterialPageRoute(builder: (_) => const SignaturePadPage()));
   if (res == null) return false;
 
-  final data = await api.get('/me/documents/$docKind');
-  final built = await buildDocumentPdf(Map<String, dynamic>.from(data), signature: res);
+  final data = Map<String, dynamic>.from(await api.get('/me/documents/$docKind'));
+  if (context.mounted) data['payments'] ??= context.read<AppState>().payments; // older servers do not send the payments
+  final built = await buildDocumentPdf(data, signature: res);
 
   final f = File('${Directory.systemTemp.path}/${docKind}_signed_${DateTime.now().millisecondsSinceEpoch}.pdf');
   await f.writeAsBytes(built.bytes);

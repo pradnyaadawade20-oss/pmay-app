@@ -75,7 +75,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
   bool _docBusy = false;
 
   Future<({Uint8List bytes, String filename})> _buildPdf(String kind) async {
-    final d = await context.read<AppState>().api.get('/me/documents/$kind');
+    final s = context.read<AppState>();
+    final d = await s.api.get('/me/documents/$kind');
+    d['payments'] ??= s.payments; // older servers do not send the payments with the document data
     return buildDocumentPdf(d);
   }
 
