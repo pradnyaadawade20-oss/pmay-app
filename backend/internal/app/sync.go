@@ -12,7 +12,7 @@ func (s *Server) adminSync(w http.ResponseWriter, r *http.Request) {
 	var rev string
 	err := s.db.QueryRowContext(r.Context(), `SELECT md5(concat_ws('|',
 		(SELECT count(*)::text || coalesce(max(updated_at)::text,'') || coalesce(sum(hashtext(
-			registration_stage || '/' || coalesce(stage_2_status,'') || '/' || coalesce(stage_4_status,'') || '/' || coalesce(bank_loan_status,'') || '/' ||
+			registration_stage || '/' || coalesce(stage_2_status,'') || '/' || coalesce(stage_4_status,'') || '/' || coalesce(bank_loan_status,'') || '/' || coalesce(mortgage_status,'') || '/' ||
 			email_verified::text || phone_verified::text || coalesce(handling_admin_id::text,'')))::text,'') FROM applicants),
 		(SELECT count(*)::text || coalesce(max(updated_at)::text,'') || coalesce(sum(hashtext(payment_status))::text,'') FROM payments),
 		(SELECT count(*)::text || coalesce(max(updated_at)::text,'') || coalesce(sum(docs_count),0)::text FROM loan_details),
@@ -30,7 +30,7 @@ func (s *Server) adminSync(w http.ResponseWriter, r *http.Request) {
 func (s *Server) meSync(w http.ResponseWriter, r *http.Request) {
 	var rev string
 	err := s.db.QueryRowContext(r.Context(), `SELECT md5(concat_ws('|', a.updated_at::text, a.registration_stage,
-		coalesce(a.stage_2_status,''), coalesce(a.stage_4_status,''), coalesce(a.bank_loan_status,''), a.email_verified::text, a.phone_verified::text,
+		coalesce(a.stage_2_status,''), coalesce(a.stage_4_status,''), coalesce(a.bank_loan_status,''), coalesce(a.mortgage_status,''), a.email_verified::text, a.phone_verified::text,
 		(SELECT count(*)::text || coalesce(max(updated_at)::text,'') || coalesce(string_agg(payment_status, ''),'') FROM payments WHERE applicant_id=a.id),
 		(SELECT count(*)::text || coalesce(max(updated_at)::text,'') || coalesce(sum(docs_count),0)::text FROM loan_details WHERE applicant_id=a.id),
 		(SELECT count(*)::text || coalesce(max(created_at)::text,'') || count(read_at)::text FROM notifications WHERE applicant_id=a.id)))

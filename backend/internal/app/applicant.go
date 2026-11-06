@@ -76,7 +76,8 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 		set = `bank_loan_receipt_path=$2, bank_loan_form_uploaded_at=now(), bank_loan_status='submitted', bank_loan_reason=NULL`
 	case "mortgage_receipt":
 		from = "stage_9_mortgage"
-		set = `registration_stage='stage_10_completed', mortgage_receipt_path=$2, mortgage_deed_signed_at=now(), registration_completed_at=now()`
+		// stays at stage 9 until an admin approves the receipt (POST /api/admin/applicants/{id}/mortgage-review)
+		set = `mortgage_receipt_path=$2, mortgage_deed_signed_at=now(), mortgage_status='submitted', mortgage_reason=NULL`
 	default:
 		fail(w, 400, "Unsupported upload type")
 		return
@@ -85,11 +86,15 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 		fail(w, 409, "This upload is not allowed at your current stage")
 		return
 	}
-	if utype == "bank_loan_receipt" {
+	if utype == "bank_loan_receipt" || utype == "mortgage_receipt" {
+		col := "bank_loan_status"
+		if utype == "mortgage_receipt" {
+			col = "mortgage_status"
+		}
 		var st string
-		_ = s.db.QueryRowContext(r.Context(), `SELECT bank_loan_status FROM applicants WHERE id=$1`, id).Scan(&st)
+		_ = s.db.QueryRowContext(r.Context(), `SELECT `+col+` FROM applicants WHERE id=$1`, id).Scan(&st)
 		if st == "submitted" {
-			fail(w, 409, "Your loan receipt is already under review")
+			fail(w, 409, "Your receipt is already under review")
 			return
 		}
 	}
@@ -160,7 +165,7 @@ func (s *Server) meUpload(w http.ResponseWriter, r *http.Request) {
 	case "bank_loan_receipt":
 		s.notify(r.Context(), id, "loan_receipt_submitted", "Loan receipt received", "Your bank loan receipt is under review. You will be notified once it is approved.")
 	case "mortgage_receipt":
-		s.notify(r.Context(), id, "completed", "Registration complete", "Congratulations! Your registration is complete.")
+		s.notify(r.Context(), id, "mortgage_submitted", "Mortgage receipt received", "Your mortgage receipt is under review. You will be notified once it is approved.")
 	}
 	writeJSON(w, 200, M{"success": true})
 }

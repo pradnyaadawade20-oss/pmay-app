@@ -304,6 +304,40 @@ func (s *Server) adminLoanReview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, M{"success": true})
 }
 
+// POST /api/admin/applicants/{id}/mortgage-review  accept: 9 -> 10 (completed); reject: stays at 9 so the applicant uploads again.
+func (s *Server) adminMortgageReview(w http.ResponseWriter, r *http.Request) {
+	var in reviewIn
+	if !decode(r, &in) || (in.Action != "accept" && in.Action != "reject") {
+		fail(w, 400, "action must be accept or reject")
+		return
+	}
+	id, uid := r.PathValue("id"), claimsOf(r).Sub
+	q := `UPDATE applicants SET mortgage_status='accepted', mortgage_reason=NULL, registration_stage='stage_10_completed', registration_completed_at=now(), updated_at=now()
+		WHERE id=$1 AND registration_stage='stage_9_mortgage' AND mortgage_status='submitted'`
+	args := []any{id}
+	if in.Action == "reject" {
+		q = `UPDATE applicants SET mortgage_status='rejected', mortgage_reason=$2, updated_at=now()
+			WHERE id=$1 AND registration_stage='stage_9_mortgage' AND mortgage_status='submitted'`
+		args = append(args, orDefault(in.Reason, "Please upload a clear copy of the signed mortgage deed."))
+	}
+	res, err := s.db.ExecContext(r.Context(), q, args...)
+	if err != nil {
+		fail(w, 500, "DB error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		fail(w, 409, "No mortgage receipt is awaiting review for this applicant")
+		return
+	}
+	s.audit(r.Context(), uid, "mortgage_"+in.Action, "applicant", id, M{"reason": in.Reason})
+	if in.Action == "accept" {
+		s.notify(r.Context(), id, "completed", "Registration complete", "Congratulations! Your registration is complete.")
+	} else {
+		s.notify(r.Context(), id, "mortgage_rejected", "Mortgage receipt rejected", orDefault(in.Reason, "Please upload a clear copy of the signed mortgage deed."))
+	}
+	writeJSON(w, 200, M{"success": true})
+}
+
 // POST /api/admin/applicants/{id}/stage {stage}  (super_admin manual override)
 func (s *Server) adminSetStage(w http.ResponseWriter, r *http.Request) {
 	var in struct {

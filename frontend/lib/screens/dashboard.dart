@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../api.dart' show kMock;
 import '../doc_actions.dart';
 import '../pdf_docs.dart';
@@ -121,6 +123,48 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
+  /// Completion certificate (built locally from the applicant's data).
+  Future<void> _certificate() async {
+    if (_docBusy) return;
+    setState(() => _docBusy = true);
+    try {
+      final s = context.read<AppState>();
+      final a = s.applicant ?? {};
+      final name = '${a['first_name'] ?? ''} ${a['last_name'] ?? ''}'.trim();
+      final doc = pw.Document();
+      doc.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(48),
+        build: (_) => pw.Center(
+            child: pw.Column(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
+          pw.Text('COMPLETION CERTIFICATE', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 30),
+          pw.Text('This is to certify that', style: const pw.TextStyle(fontSize: 14)),
+          pw.SizedBox(height: 12),
+          pw.Text(name.isEmpty ? '-' : name, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 12),
+          pw.Text('has successfully completed the registration and house allotment process.', style: const pw.TextStyle(fontSize: 14), textAlign: pw.TextAlign.center),
+          pw.SizedBox(height: 12),
+          pw.Text('Flat: ${s.unit?['unit_number'] ?? '-'}', style: const pw.TextStyle(fontSize: 14)),
+        ])),
+      ));
+      final bytes = await doc.save();
+      final uri = await DocActions.download(bytes, 'completion_certificate.pdf');
+      if (mounted && uri != null) toast(context, 'Downloaded: completion_certificate.pdf');
+    } catch (e) {
+      if (mounted) toast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _docBusy = false);
+    }
+  }
+
+  Future<void> _allDocs() async {
+    for (final k in const ['allotment', 'agreement', 'bank-loan', 'mortgage']) {
+      if (!mounted) return;
+      await _doc(k);
+    }
+  }
+
   /// Share: sends the PDF directly to WhatsApp.
   Future<void> _shareDoc(String kind, String label) async {
     if (_docBusy) return;
@@ -178,9 +222,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
         return const _StatusCard(icon: Icons.home_work, color: Colors.orange, title: 'Awaiting house allotment', message: 'Payment received. A unit will be allotted to you soon.');
       case 'stage_5_agreement':
         return _StatusCard(icon: Icons.description, color: Colors.blue, title: 'Sign the agreement',
-            message: a['stage_4_status'] == 'rejected' ? 'Rejected: ${a['stage_4_reason'] ?? ''}. Please upload again.' : 'Download, print, sign and upload both the allotment letter and the agreement. Select all files together (images or PDF).',
+            message: a['stage_4_status'] == 'rejected' ? 'Rejected: ${a['stage_4_reason'] ?? ''}. Please upload again.' : 'Download, print, sign and upload the agreement (image or PDF).',
             children: [
-              _docRow('Allotment letter', 'allotment'),
               _docRow('Agreement for sale', 'agreement'),
               FilledButton.icon(onPressed: _busy ? null : () => _eSign('agreement', 'agreement_signed'), icon: const Icon(Icons.draw), label: const Text('E-sign agreement')),
               FilledButton.icon(onPressed: _busy ? null : () => _upload('agreement_signed', multi: true), icon: const Icon(Icons.upload_file), label: const Text('Upload signed agreement')),
@@ -205,17 +248,54 @@ class _TrackingScreenState extends State<TrackingScreen> {
           FilledButton.icon(onPressed: _busy ? null : () => _upload('bank_loan_receipt'), icon: const Icon(Icons.upload_file), label: const Text('Upload loan receipt')),
         ]);
       case 'stage_9_mortgage':
+        if (a['mortgage_status'] == 'submitted') {
+          // the receipt is uploaded; the registration completes only after an admin approves it
+          return const _StatusCard(icon: Icons.hourglass_top, color: Colors.orange, title: 'Mortgage under review',
+              message: 'Admin is verifying your mortgage receipt. You will be notified once it is approved.');
+        }
         return _StatusCard(icon: Icons.gavel, color: Colors.blue, title: 'Mortgage deed',
-            message: 'Download, sign and upload the mortgage deed receipt.', children: [
+            message: a['mortgage_status'] == 'rejected'
+                ? 'Rejected: ${a['mortgage_reason'] ?? ''}. Please upload again.'
+                : 'Download, sign and upload the mortgage deed receipt.', children: [
           OutlinedButton.icon(onPressed: () => _doc('mortgage'), icon: const Icon(Icons.download), label: const Text('Download mortgage deed')),
           FilledButton.icon(onPressed: _busy ? null : () => _eSign('mortgage', 'mortgage_receipt'), icon: const Icon(Icons.draw), label: const Text('E-sign mortgage deed')),
           FilledButton.icon(onPressed: _busy ? null : () => _upload('mortgage_receipt'), icon: const Icon(Icons.upload_file), label: const Text('Upload mortgage receipt')),
         ]);
       case 'stage_10_completed':
-        return _StatusCard(icon: Icons.celebration, color: Colors.green, title: 'Registration complete!', badge: 'Completed',
-            message: 'Congratulations. Your flat: ${s.unit?['unit_number'] ?? '-'}', children: [
-          OutlinedButton(onPressed: () => _doc('agreement'), child: const Text('Download agreement')),
-        ]);
+        const green = Color(0xFF15803D);
+        Widget btn(String label, VoidCallback? onTap) => SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+                onPressed: onTap,
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF111827),
+                    backgroundColor: const Color(0xFFF8FAFC),
+                    side: const BorderSide(color: Color(0xFFD1FAE5)),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                icon: const Icon(Icons.file_download_outlined, size: 20),
+                label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))));
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBBF7D0))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: const [
+              Icon(Icons.check_circle_outline, color: green, size: 30),
+              SizedBox(width: 10),
+              Expanded(child: Text('Registration Complete!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: green))),
+            ]),
+            const SizedBox(height: 8),
+            const Text('Congratulations! Your registration and house allotment is complete.', style: TextStyle(fontSize: 14, color: green)),
+            const SizedBox(height: 20),
+            btn('Download Completion Certificate', _docBusy ? null : _certificate),
+            const SizedBox(height: 12),
+            btn('Download All Documents', _docBusy ? null : _allDocs),
+          ]),
+        );
       default:
         return const SizedBox();
     }
