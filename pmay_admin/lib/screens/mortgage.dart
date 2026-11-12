@@ -7,10 +7,72 @@ import '../web_open.dart';
 import 'mortgage_deed_form.dart';
 
 /// Mortgage stage: applicants at Stage 9 (mortgage deed to be signed & receipt uploaded)
-/// and Stage 10 (completed, receipt uploaded). Read-only: the receipt moves the applicant
-/// straight to Completed, so there is no approve/reject step here.
+/// and Stage 10 (completed). A submitted receipt must be approved or rejected by an admin.
 bool _awaiting(Map a) => a['registration_stage'] == 'stage_9_mortgage';
 bool _completed(Map a) => a['registration_stage'] == 'stage_10_completed';
+bool _needsReview(Map a) => _awaiting(a) && '${a['mortgage_status']}' == 'submitted';
+
+/// Approve / reject the mortgage receipt (nothing is approved automatically). Reject asks for a reason.
+/// Returns true if the status changed.
+Future<bool> _decide(BuildContext context, String id, String action) async {
+  var reason = '';
+  if (action == 'reject') {
+    final c = TextEditingController();
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+              title: const Text('Reject mortgage receipt'),
+              content: TextField(controller: c, maxLines: 3, autofocus: true, decoration: const InputDecoration(hintText: 'Reason (shown to the applicant)')),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+                FilledButton(style: FilledButton.styleFrom(backgroundColor: kRed), onPressed: () => Navigator.pop(d, true), child: const Text('Reject')),
+              ],
+            ));
+    reason = c.text.trim();
+    c.dispose();
+    if (ok != true) return false;
+    if (reason.isEmpty) {
+      if (context.mounted) toast(context, 'Enter a reason for rejection', error: true);
+      return false;
+    }
+  }
+  try {
+    await Api.i.post(Ep.mortgageReview(id), {'action': action, 'reason': reason});
+    if (context.mounted) toast(context, action == 'accept' ? 'Mortgage approved' : 'Mortgage rejected');
+    return true;
+  } catch (e) {
+    if (context.mounted) toast(context, e.toString(), error: true);
+    return false;
+  }
+}
+
+Widget _decisionButtons(BuildContext context, String id, Future<void> Function() after) => Row(mainAxisSize: MainAxisSize.min, children: [
+      FilledButton.icon(
+        onPressed: () async {
+          if (await _decide(context, id, 'accept')) await after();
+        },
+        icon: const Icon(Icons.check_rounded, size: 18),
+        label: const Text('Approve'),
+        style: FilledButton.styleFrom(backgroundColor: kGreen, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+      ),
+      const SizedBox(width: 8),
+      OutlinedButton.icon(
+        onPressed: () async {
+          if (await _decide(context, id, 'reject')) await after();
+        },
+        icon: const Icon(Icons.close_rounded, size: 18),
+        label: const Text('Reject'),
+        style: OutlinedButton.styleFrom(foregroundColor: kRed, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+      ),
+    ]);
+
+(String, Color) _statusOf(Map a) {
+  if (_completed(a)) return ('Completed', kGreen);
+  final st = '${a['mortgage_status']}';
+  if (st == 'submitted') return ('Needs review', kOrange);
+  if (st == 'rejected') return ('Rejected', kRed);
+  return ('Awaiting Receipt', kMuted);
+}
 
 String _fmtD(Object? v) {
   final d = DateTime.tryParse('${v ?? ''}')?.toLocal();
@@ -126,7 +188,7 @@ class _MortgagePageState extends State<MortgagePage> with AutoSyncMixin {
       );
 
   Widget _pill(Map a) {
-    final (t, c) = _completed(a) ? ('Completed', kGreen) : ('Awaiting Receipt', kOrange);
+    final (t, c) = _statusOf(a);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
@@ -184,6 +246,10 @@ class _MortgagePageState extends State<MortgagePage> with AutoSyncMixin {
                               label: const Text('View'),
                               style: OutlinedButton.styleFrom(foregroundColor: kInk, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                             ),
+                            if (Api.i.canReview && _needsReview(a)) ...[
+                              const SizedBox(width: 8),
+                              _decisionButtons(context, '${a['id']}', _load),
+                            ],
                             if (Api.i.canReview && _awaiting(a)) ...[
                               const SizedBox(width: 8),
                               OutlinedButton.icon(
@@ -334,7 +400,7 @@ class _MortgageDialogState extends State<MortgageDialog> {
                         Expanded(
                           child: Wrap(spacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
                             Text('Mortgage: ${a['unique_id'] ?? '-'}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kInk)),
-                            Pill(done ? 'Completed' : 'Awaiting Receipt', done ? kGreen : kOrange),
+                            Pill(_statusOf(a).$1, _statusOf(a).$2),
                           ]),
                         ),
                         IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: kMuted)),
@@ -367,6 +433,17 @@ class _MortgageDialogState extends State<MortgageDialog> {
                           _docView(),
                         ]),
                       ),
+                      if ('${a['mortgage_status']}' == 'rejected' && _awaiting(a))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Text('Rejected: ${a['mortgage_reason'] ?? ''}', style: const TextStyle(color: kRed, fontWeight: FontWeight.w600)),
+                        ),
+                      if (Api.i.canReview && _needsReview(a)) ...[
+                        const SizedBox(height: 16),
+                        _decisionButtons(context, widget.id, () async {
+                          if (context.mounted) Navigator.pop(context);
+                        }),
+                      ],
                     ]),
                   ),
       ),

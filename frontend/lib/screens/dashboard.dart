@@ -441,7 +441,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Widget _stepsList(int cur) {
-    final open = _open ?? (cur > 10 ? 0 : cur);
+    final open = _open ?? (cur > 10 ? 10 : cur); // when everything is done, open the Completed step
     return _cardBox(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       child: Column(children: [
@@ -500,7 +500,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     padding: const EdgeInsets.only(left: 33, bottom: 12),
                     decoration: BoxDecoration(
                         border: Border(left: BorderSide(width: 2, color: i == _steps.length - 1 ? Colors.transparent : (isDone ? _green : (isCur ? kBlue.withValues(alpha: 0.4) : Colors.black12))))),
-                    child: isCur
+                    child: (isCur || (n == 10 && cur > 10))
                         ? _stageCard(context.read<AppState>())
                         : Container(
                             width: double.infinity,
