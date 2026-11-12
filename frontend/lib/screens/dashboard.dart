@@ -3,8 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import '../api.dart' show kMock;
 import '../doc_actions.dart';
 import '../pdf_docs.dart';
@@ -116,41 +114,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     if (mounted) toast(context, 'No PDF viewer found. File is in your Downloads folder.', error: true);
                   })),
         ));
-    } catch (e) {
-      if (mounted) toast(context, e.toString(), error: true);
-    } finally {
-      if (mounted) setState(() => _docBusy = false);
-    }
-  }
-
-  /// Completion certificate (built locally from the applicant's data).
-  Future<void> _certificate() async {
-    if (_docBusy) return;
-    setState(() => _docBusy = true);
-    try {
-      final s = context.read<AppState>();
-      final a = s.applicant ?? {};
-      final name = '${a['first_name'] ?? ''} ${a['last_name'] ?? ''}'.trim();
-      final doc = pw.Document();
-      doc.addPage(pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(48),
-        build: (_) => pw.Center(
-            child: pw.Column(mainAxisAlignment: pw.MainAxisAlignment.center, children: [
-          pw.Text('COMPLETION CERTIFICATE', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 30),
-          pw.Text('This is to certify that', style: const pw.TextStyle(fontSize: 14)),
-          pw.SizedBox(height: 12),
-          pw.Text(name.isEmpty ? '-' : name, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 12),
-          pw.Text('has successfully completed the registration and house allotment process.', style: const pw.TextStyle(fontSize: 14), textAlign: pw.TextAlign.center),
-          pw.SizedBox(height: 12),
-          pw.Text('Flat: ${s.unit?['unit_number'] ?? '-'}', style: const pw.TextStyle(fontSize: 14)),
-        ])),
-      ));
-      final bytes = await doc.save();
-      final uri = await DocActions.download(bytes, 'completion_certificate.pdf');
-      if (mounted && uri != null) toast(context, 'Downloaded: completion_certificate.pdf');
     } catch (e) {
       if (mounted) toast(context, e.toString(), error: true);
     } finally {
@@ -291,8 +254,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
             const SizedBox(height: 8),
             const Text('Congratulations! Your registration and house allotment is complete.', style: TextStyle(fontSize: 14, color: green)),
             const SizedBox(height: 20),
-            btn('Download Completion Certificate', _docBusy ? null : _certificate),
-            const SizedBox(height: 12),
             btn('Download All Documents', _docBusy ? null : _allDocs),
           ]),
         );
