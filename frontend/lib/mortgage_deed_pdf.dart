@@ -34,8 +34,7 @@ String _dateLong(String s) {
   return d == null ? (s.isEmpty ? _blank : s) : DateFormat('dd MMMM yyyy').format(d);
 }
 
-Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dynamic> data,
-    {Uint8List? signature}) async {
+Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dynamic> data) async {
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
   final p = Map<String, dynamic>.from(data['project'] ?? {});
@@ -112,23 +111,17 @@ Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dy
   pw.Widget para(String t, {pw.TextStyle style = body, pw.TextAlign align = pw.TextAlign.justify, double gap = 7}) =>
       pw.Padding(padding: pw.EdgeInsets.only(bottom: gap), child: pw.Text(t, style: style, textAlign: align));
 
-  pw.Widget sigBlock(String label, String who, {Uint8List? img, String? note, String? sub}) => pw.Container(
+  pw.Widget sigBlock(String label, String who, {String? sub}) => pw.Container(
         width: 210,
         child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.SizedBox(height: img == null ? 34 : 0),
-          if (img != null) pw.Image(pw.MemoryImage(img), width: 130, height: 50, fit: pw.BoxFit.contain),
+          pw.SizedBox(height: 34),
           pw.Container(height: 0.5, color: PdfColors.black),
           pw.SizedBox(height: 3),
           pw.Text(label, style: bold),
           pw.Text(_v(who), style: const pw.TextStyle(fontSize: 9)),
           if (sub != null && sub.isNotEmpty) pw.Text(sub, style: const pw.TextStyle(fontSize: 9)),
-          if (note != null) pw.Text(note, style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
         ]),
       );
-
-  final signedNote = signature == null
-      ? null
-      : 'e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}';
 
   final doc = pw.Document();
   doc.addPage(pw.MultiPage(
@@ -150,7 +143,7 @@ Future<({Uint8List bytes, String filename})> buildMortgageDeedPdf(Map<String, dy
       para('On or towards the North : ${_v(bound('north'))}', gap: 14),
       para('IN WITNESS WHEREOF the parties hereto have signed hereunder at $place on this $date.', gap: 22),
       pw.Wrap(spacing: 30, runSpacing: 24, children: [
-        sigBlock("MORTGAGOR'S Name and SIGN", name, img: signature, note: signedNote),
+        sigBlock("MORTGAGOR'S Name and SIGN", name),
         sigBlock("MORTGAGEE'S Name and SIGN", _t(d, 'signatory_name'), sub: _t(d, 'signatory_designation')),
       ]),
       pw.SizedBox(height: 22),

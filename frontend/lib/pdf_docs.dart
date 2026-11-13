@@ -40,17 +40,16 @@ Future<void> shareDocument(Map<String, dynamic> data) async {
   await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.filename);
 }
 
-/// Builds the PDF. If [signature] (PNG bytes) is given, it is stamped above the
-/// "Applicant Signature" line together with the e-sign time.
-Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data, {Uint8List? signature}) async {
+/// Builds the PDF for a document (kind = allotment | agreement | bank-loan | mortgage).
+Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynamic> data) async {
   final kind = data['kind'] as String;
   // Mortgage hamesha naya Simple Mortgage Deed hai. Admin ne details na bhari hon to blanks (____) print hote hain.
   if (kind == 'mortgage') {
-    return buildMortgageDeedPdf(data, signature: signature);
+    return buildMortgageDeedPdf(data);
   }
   // The documents the applicant signs use the same layout as the ones issued by the admin panel.
-  if (kind == 'agreement') return buildAgreementOfSalePdf(data, signature: signature);
-  if (kind == 'allotment') return buildAllotmentLetterPdf(data, signature: signature);
+  if (kind == 'agreement') return buildAgreementOfSalePdf(data);
+  if (kind == 'allotment') return buildAllotmentLetterPdf(data);
   final a = Map<String, dynamic>.from(data['applicant'] ?? {});
   final u = Map<String, dynamic>.from(data['unit'] ?? {});
   final p = Map<String, dynamic>.from(data['project'] ?? {});
@@ -101,11 +100,8 @@ Future<({Uint8List bytes, String filename})> buildDocumentPdf(Map<String, dynami
       pw.SizedBox(height: 60),
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Column(children: [
-          if (signature != null) pw.Image(pw.MemoryImage(signature), width: 130, height: 50, fit: pw.BoxFit.contain),
           pw.Container(width: 150, height: 0.5, color: PdfColors.black),
           pw.Text('Applicant Signature', style: const pw.TextStyle(fontSize: 9)),
-          if (signature != null)
-            pw.Text('e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
         ]),
         pw.Column(children: [pw.Container(width: 150, height: 0.5, color: PdfColors.black), pw.Text('For ${_s(p['developer_name'])}', style: const pw.TextStyle(fontSize: 9))]),
       ]),

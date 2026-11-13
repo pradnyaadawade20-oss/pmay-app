@@ -152,13 +152,12 @@ pw.Widget _numbered(List<String> items) => pw.Padding(
 
 pw.Widget _rule({double w = 1.2, double width = 190}) => pw.Container(width: width, height: w, color: PdfColors.black);
 
-/// A signature line. When [sig] (PNG bytes from the e-sign pad) is given it is printed above the line.
-pw.Widget _signLine(String caption, {Uint8List? sig, double width = 190, String? note}) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      if (sig != null) pw.Image(pw.MemoryImage(sig), width: 130, height: 46, fit: pw.BoxFit.contain) else pw.SizedBox(height: 46),
+/// A blank signature line with a caption.
+pw.Widget _signLine(String caption, {double width = 190}) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+      pw.SizedBox(height: 46),
       _rule(width: width),
       pw.SizedBox(height: 3),
       pw.Text(caption, style: _t(size: 10)),
-      if (note != null) pw.Text(note, style: _t(size: 7, color: PdfColors.grey700)),
     ]);
 
 pw.Document _newDoc() => pw.Document(
@@ -169,7 +168,7 @@ const _margin = pw.EdgeInsets.fromLTRB(46, 44, 46, 44);
 // =====================================================================
 // Agreement of Sale
 // =====================================================================
-Future<({Uint8List bytes, String filename})> buildAgreementOfSalePdf(Map<String, dynamic> data, {Uint8List? signature}) async {
+Future<({Uint8List bytes, String filename})> buildAgreementOfSalePdf(Map<String, dynamic> data) async {
   final a = _m(data['applicant']), u = _m(data['unit']), p = _m(data['project']);
   final now = DateTime.now();
 
@@ -207,7 +206,6 @@ Future<({Uint8List bytes, String filename})> buildAgreementOfSalePdf(Map<String,
     ['', 'Total', '100%', total == null ? _blank : _inr(total)],
   ];
 
-  final signedNote = signature == null ? null : 'e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(now)}';
 
   final doc = _newDoc();
   doc.addPage(pw.MultiPage(
@@ -272,7 +270,7 @@ Future<({Uint8List bytes, String filename})> buildAgreementOfSalePdf(Map<String,
           pw.Text('PURCHASER:', style: _t(bold: true)),
           pw.SizedBox(height: 8),
           pw.Text(name, style: _t()),
-          _signLine('Signature', sig: signature, note: signedNote),
+          _signLine('Signature'),
         ])),
       ]),
       pw.SizedBox(height: 34),
@@ -305,7 +303,7 @@ Future<({Uint8List bytes, String filename})> buildAgreementOfSalePdf(Map<String,
 // =====================================================================
 // Allotment Letter (MahaRERA model form, Annexure 1)
 // =====================================================================
-Future<({Uint8List bytes, String filename})> buildAllotmentLetterPdf(Map<String, dynamic> data, {Uint8List? signature}) async {
+Future<({Uint8List bytes, String filename})> buildAllotmentLetterPdf(Map<String, dynamic> data) async {
   final a = _m(data['applicant']), u = _m(data['unit']), p = _m(data['project']);
   final now = DateTime.now();
 
@@ -329,7 +327,6 @@ Future<({Uint8List bytes, String filename})> buildAllotmentLetterPdf(Map<String,
   final aadhaar = formatAadhaar(a['aadhar_number']).isEmpty ? _blank : formatAadhaar(a['aadhar_number']);
   final pd = DateTime.tryParse(_s(p['possession_date'], '2028-12-31'));
   final possession = pd == null ? '31/12/2028' : _dmy(pd);
-  final signedNote = signature == null ? null : 'e-Signed on ${DateFormat('dd MMM yyyy, hh:mm a').format(now)}';
 
   final doc = _newDoc();
   doc.addPage(pw.MultiPage(
@@ -437,7 +434,7 @@ Future<({Uint8List bytes, String filename})> buildAllotmentLetterPdf(Map<String,
       pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.end, mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
         pw.Row(mainAxisSize: pw.MainAxisSize.min, crossAxisAlignment: pw.CrossAxisAlignment.end, children: [pw.Text('Date: ', style: _t()), _rule(width: 120)]),
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          _signLine('Signature of Allottee', sig: signature, width: 190, note: signedNote),
+          _signLine('Signature of Allottee', width: 190),
           pw.SizedBox(height: 4),
           pw.Text('($name)', style: _t()),
         ]),
