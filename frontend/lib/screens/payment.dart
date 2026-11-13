@@ -8,6 +8,7 @@ import 'package:flutter_cashfree_pg_sdk/utils/cfexceptions.dart';
 import 'package:provider/provider.dart';
 import '../state.dart';
 import '../widgets.dart';
+import 'payment_receipt.dart';
 
 /// Booking payment (online only) via Cashfree: UPI / Cards / Net Banking.
 /// Cash / cheque / DD payments are collected by the admin at the office (Admin panel -> Collect Payment).
@@ -77,8 +78,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (status == 'paid') {
         await s.refresh();
         if (mounted) {
-          toast(context, 'Payment successful');
-          Navigator.pop(context);
+          // show the receipt right away (same screen position), with the PDF download
+          final paid = paidPayments(s);
+          if (paid.isNotEmpty) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PaymentReceiptScreen(payment: paid.first)));
+          } else {
+            toast(context, 'Payment successful');
+            Navigator.pop(context);
+          }
         }
       } else if (mounted) {
         toast(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../common.dart';
+import 'payment_receipt_dialog.dart';
 import 'collect_payment_dialog.dart';
 
 String _d(dynamic v) {
@@ -45,7 +46,10 @@ class _AwaitingPaymentsPageState extends State<AwaitingPaymentsPage> {
       context: context,
       builder: (_) => CollectPaymentDialog(applicant: a, totalCost: widget.totalCost, startOffline: offline),
     );
-    if (changed == true) widget.onChanged();
+    if (changed == true) {
+      widget.onChanged();
+      if (mounted) await showPaymentReceipt(context, applicantId: a['id']); // receipt right after the payment
+    }
   }
 
   @override

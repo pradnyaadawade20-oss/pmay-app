@@ -8,6 +8,7 @@ import '../common.dart';
 import '../web_open.dart';
 import 'cheque_payment_dialog.dart';
 import 'collect_payment_dialog.dart';
+import 'payment_receipt_dialog.dart';
 import 'payments.dart';
 
 /// Price of one unit per applicant (Rs 25,50,000 = 25.5 L). Change here if it differs.
@@ -232,7 +233,10 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> with Auto
   Widget _awaitingTab() {
     Future<void> record(String? id) async {
       final saved = await showChequePaymentDialog(context, applicantId: id);
-      if (saved == true) _load();
+      if (saved == true) {
+        _load();
+        if (id != null && mounted) await showPaymentReceipt(context, applicantId: id);
+      }
     }
 
     // Collect Payment: online (Cashfree) or cash (receipt upload)
@@ -255,7 +259,10 @@ class _PaymentManagementPageState extends State<PaymentManagementPage> with Auto
           startOffline: offline,
         ),
       );
-      if (saved == true) _load();
+      if (saved == true) {
+        _load();
+        if (mounted) await showPaymentReceipt(context, applicantId: a['id']); // receipt right after the payment
+      }
     }
 
     final people = _awaiting;
@@ -750,6 +757,18 @@ class PaymentDetailsDialog extends StatelessWidget {
               Expanded(child: _kv('Email', _t('${p['email'] ?? p['applicant_email'] ?? '-'}'))),
               Expanded(child: _kv('Phone', _t('${p['phone'] ?? p['applicant_phone'] ?? '-'}'))),
             ]),
+            if (_st(p) == 'completed' && p['applicant_id'] != null) ...[
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => showPaymentReceipt(context, applicantId: p['applicant_id'], paymentId: p['id']),
+                  icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                  label: const Text('Payment Receipt (View / Download PDF)'),
+                  style: FilledButton.styleFrom(backgroundColor: kGreen, padding: const EdgeInsets.symmetric(vertical: 18)),
+                ),
+              ),
+            ],
             const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../auto_sync.dart';
 import '../common.dart';
+import 'payment_receipt_dialog.dart';
 
 class PaymentsPage extends StatefulWidget {
   const PaymentsPage({super.key});
@@ -59,6 +60,7 @@ class _PaymentsPageState extends State<PaymentsPage> with AutoSyncMixin {
       await Api.i.post(Ep.payAct('${p['id']}', act));
       if (mounted) toast(context, act == 'confirm' ? 'Payment confirmed' : 'Payment rejected');
       _load();
+      if (act == 'confirm' && mounted) await showPaymentReceipt(context, applicantId: p['applicant_id'], paymentId: p['id']);
     } catch (e) {
       if (mounted) toast(context, e.toString(), error: true);
     }

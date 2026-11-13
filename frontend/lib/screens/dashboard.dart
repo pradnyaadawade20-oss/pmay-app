@@ -15,6 +15,7 @@ import 'login.dart';
 import 'otp.dart';
 import 'notifications.dart';
 import 'profile_pages.dart';
+import 'payment_receipt.dart';
 
 /// Full page version (AppBar + tracking body) – used where it is pushed as a route.
 class DashboardScreen extends StatelessWidget {
@@ -444,7 +445,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
                         border: Border(left: BorderSide(width: 2, color: i == _steps.length - 1 ? Colors.transparent : (isDone ? _green : (isCur ? kBlue.withValues(alpha: 0.4) : Colors.black12))))),
                     child: (isCur || (n == 10 && cur > 10))
                         ? _stageCard(context.read<AppState>())
-                        : Container(
+                        : Column(children: [
+                            if (n == 3 && isDone) const Padding(padding: EdgeInsets.only(bottom: 10), child: PaymentReceiptsCard()),
+                            Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(color: const Color(0xFFEFF3FD), borderRadius: BorderRadius.circular(12)),
@@ -461,6 +464,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                               ),
                             ]),
                           ),
+                        ]),
                   ),
                 ),
               if (i < _steps.length - 1) const Divider(height: 1, indent: 52),
