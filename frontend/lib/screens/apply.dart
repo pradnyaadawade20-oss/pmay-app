@@ -215,7 +215,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () async {
-          final p = photo ? await pickPassportPhoto(context) : await pickDoc();
+          final p = photo ? await pickPassportPhoto(context) : await pickCroppedDoc(context, label);
           if (p != null) {
             setState(() => _files[key] = p);
             _autoFill(key, p);

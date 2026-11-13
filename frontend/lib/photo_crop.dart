@@ -11,8 +11,8 @@ import 'theme.dart';
 /// "Crop & Adjust Image" dialog (same as the website): zoom slider, rotate left/right,
 /// optional free crop, Apply / Cancel.
 /// Returns the cropped photo as JPG bytes (white background), or null if cancelled.
-Future<Uint8List?> showCropDialog(BuildContext context, Uint8List bytes) =>
-    showDialog<Uint8List>(context: context, barrierDismissible: false, builder: (_) => _CropDialog(bytes: bytes));
+Future<Uint8List?> showCropDialog(BuildContext context, Uint8List bytes, {double ratio = 7 / 9, bool free = false}) =>
+    showDialog<Uint8List>(context: context, barrierDismissible: false, builder: (_) => _CropDialog(bytes: bytes, ratio: ratio, free: free));
 
 /// Runs in a background isolate (compute): PNG -> JPG so the file stays small (well under 2MB).
 Uint8List _pngToJpg(Uint8List png) {
@@ -22,13 +22,14 @@ Uint8List _pngToJpg(Uint8List png) {
 
 class _CropDialog extends StatefulWidget {
   final Uint8List bytes;
-  const _CropDialog({required this.bytes});
+  final double ratio; // crop frame width / height
+  final bool free; // start with Free Crop switched on
+  const _CropDialog({required this.bytes, this.ratio = 7 / 9, this.free = false});
   @override
   State<_CropDialog> createState() => _CropDialogState();
 }
 
 class _CropDialogState extends State<_CropDialog> {
-  static const double _ratio = 7 / 9; // passport photo 35mm x 45mm
   static const double _minScale = 1, _maxScale = 5, _minFrame = 60;
 
   final _tc = TransformationController();
@@ -36,7 +37,8 @@ class _CropDialogState extends State<_CropDialog> {
   Size _vp = Size.zero; // viewport (crop area) size
   Rect _frame = Rect.zero; // crop frame inside the viewport
   Size? _imgSize;
-  bool _free = false, _busy = false;
+  late bool _free = widget.free;
+  bool _busy = false;
   int _rot = 0; // quarter turns
 
   @override
@@ -64,10 +66,10 @@ class _CropDialogState extends State<_CropDialog> {
   void _resetFrame() {
     const m = 16.0;
     var w = _vp.width - 2 * m;
-    var h = w / _ratio;
+    var h = w / widget.ratio;
     if (h > _vp.height - 2 * m) {
       h = _vp.height - 2 * m;
-      w = h * _ratio;
+      w = h * widget.ratio;
     }
     _frame = Rect.fromCenter(center: _vp.center(Offset.zero), width: w, height: h);
   }

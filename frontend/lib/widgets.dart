@@ -1,4 +1,5 @@
 import 'dart:io' show Directory, File;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -76,6 +77,53 @@ Future<String?> pickPassportPhoto(BuildContext context) async {
     return f.path;
   } catch (e) {
     if (context.mounted) toast(context, 'Could not open camera/gallery: $e', error: true);
+    return null;
+  }
+}
+
+/// Document upload with "Crop & Adjust Image" (Membership Proof, Aadhaar, PAN): Camera, Gallery or a file.
+/// Images go through the crop dialog (zoom, rotate, free crop); a PDF is used as it is.
+/// Returns the local path (cropped jpg or the PDF), or null if cancelled.
+Future<String?> pickCroppedDoc(BuildContext context, String title) async {
+  final choice = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Align(alignment: Alignment.centerLeft, child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
+        ),
+        ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Take Photo (Camera)'), onTap: () => Navigator.pop(ctx, 'camera')),
+        ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Choose from Gallery'), onTap: () => Navigator.pop(ctx, 'gallery')),
+        ListTile(leading: const Icon(Icons.insert_drive_file_outlined), title: const Text('Choose File (PDF / Image)'), onTap: () => Navigator.pop(ctx, 'file')),
+      ]),
+    ),
+  );
+  if (choice == null) return null;
+  try {
+    Uint8List? bytes;
+    if (choice == 'file') {
+      final p = await pickDoc();
+      if (p == null) return null;
+      if (p.toLowerCase().endsWith('.pdf')) return p; // nothing to crop
+      bytes = kIsWeb ? WebFiles.get(p) : await File(p).readAsBytes();
+    } else {
+      final x = await ImagePicker().pickImage(
+          source: choice == 'camera' ? ImageSource.camera : ImageSource.gallery, maxWidth: 2400, maxHeight: 2400, imageQuality: 90);
+      if (x == null) return null;
+      bytes = await x.readAsBytes();
+    }
+    if (bytes == null || !context.mounted) return null;
+    final jpg = await showCropDialog(context, bytes, ratio: 4 / 3, free: true); // free crop on, so any card/page shape fits
+    if (jpg == null) return null; // user cancelled
+    final name = '${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    if (kIsWeb) return WebFiles.put(name, jpg);
+    final f = File('${Directory.systemTemp.path}/$name');
+    await f.writeAsBytes(jpg, flush: true);
+    return f.path;
+  } catch (e) {
+    if (context.mounted) toast(context, 'Could not open the image: $e', error: true);
     return null;
   }
 }
